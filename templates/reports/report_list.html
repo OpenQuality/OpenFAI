@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}检验报告 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li>
+<li class="breadcrumb-item active">检验报告</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">检验报告</h2>
+    <a href="{% url 'report_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>创建报告
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>报告编号</th>
+                        <th>报告标题</th>
+                        <th>检验计划</th>
+                        <th>结论</th>
+                        <th>状态</th>
+                        <th>生成时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td><strong>{{ report.report_number }}</strong></td>
+                        <td>{{ report.title }}</td>
+                        <td>{{ report.plan.plan_number }}</td>
+                        <td>
+                            {% if report.conclusion == 'PASS' %}
+                            <span class="badge bg-success">合格</span>
+                            {% elif report.conclusion == 'FAIL' %}
+                            <span class="badge bg-danger">不合格</span>
+                            {% else %}
+                            <span class="badge bg-secondary">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if report.status == 'PUBLISHED' %}success{% elif report.status == 'COMPLETED' %}primary{% else %}secondary{% endif %}">
+                                {{ report.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ report.generated_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'report_detail' report.pk %}" class="btn btn-outline-primary" title="查看"><i class="bi bi-eye"></i></a>
+                                <a href="{% url 'report_edit' report.pk %}" class="btn btn-outline-success" title="编辑"><i class="bi bi-pencil"></i></a>
+                                <form method="post" action="{% url 'report_delete' report.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除吗？');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="删除"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            暂无报告
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

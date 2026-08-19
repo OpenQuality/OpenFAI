@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block title %}控制要求管理{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'control_requirement_list' %}">控制要求</a></li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-shield-plus me-2"></i>控制要求管理</h2>
+        {% if can_add %}
+        <a href="{% url 'control_requirement_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> 新建控制要求
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- 筛选器 -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <select name="part" class="form-select">
+                        <option value="">全部零件</option>
+                        {% for part in available_parts %}
+                        <option value="{{ part.pk }}" {% if request.GET.part == part.pk|stringformat:'s' %}selected{% endif %}>
+                            {{ part.part_number }} - {{ part.part_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="risk_level" class="form-select">
+                        <option value="">全部风险等级</option>
+                        <option value="HIGH" {% if request.GET.risk_level == 'HIGH' %}selected{% endif %}>高风险</option>
+                        <option value="MEDIUM" {% if request.GET.risk_level == 'MEDIUM' %}selected{% endif %}>中风险</option>
+                        <option value="LOW" {% if request.GET.risk_level == 'LOW' %}selected{% endif %}>低风险</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="control_type" class="form-select">
+                        <option value="">全部类型</option>
+                        <option value="DIMENSION" {% if request.GET.control_type == 'DIMENSION' %}selected{% endif %}>尺寸控制</option>
+                        <option value="SURFACE" {% if request.GET.control_type == 'SURFACE' %}selected{% endif %}>表面质量</option>
+                        <option value="MATERIAL" {% if request.GET.control_type == 'MATERIAL' %}selected{% endif %}>材料要求</option>
+                        <option value="GEOMETRY" {% if request.GET.control_type == 'GEOMETRY' %}selected{% endif %}>形位公差</option>
+                        <option value="PROCESS" {% if request.GET.control_type == 'PROCESS' %}selected{% endif %}>工艺要求</option>
+                        <option value="ASSEMBLY" {% if request.GET.control_type == 'ASSEMBLY' %}selected{% endif %}>装配要求</option>
+                        <option value="SAFETY" {% if request.GET.control_type == 'SAFETY' %}selected{% endif %}>安全要求</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="key_char" class="form-select">
+                        <option value="">全部</option>
+                        <option value="1" {% if request.GET.key_char == '1' %}selected{% endif %}>关键特性</option>
+                        <option value="0" {% if request.GET.key_char == '0' %}selected{% endif %}>非关键特性</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-search"></i> 筛选
+                    </button>
+                    <a href="{% url 'control_requirement_list' %}" class="btn btn-outline-secondary">重置</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>要求编号</th>
+                            <th>要求名称</th>
+                            <th>控制类型</th>
+                            <th>风险等级</th>
+                            <th>关键特性</th>
+                            <th>零件</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in requirements %}
+                        <tr>
+                            <td><strong>{{ req.requirement_id }}</strong></td>
+                            <td>{{ req.requirement_name|truncatechars:30 }}</td>
+                            <td>
+                                <span class="badge bg-secondary">
+                                    {% if req.control_type == 'DIMENSION' %}尺寸控制
+                                    {% elif req.control_type == 'SURFACE' %}表面质量
+                                    {% elif req.control_type == 'MATERIAL' %}材料要求
+                                    {% elif req.control_type == 'GEOMETRY' %}形位公差
+                                    {% elif req.control_type == 'PROCESS' %}工艺要求
+                                    {% elif req.control_type == 'ASSEMBLY' %}装配要求
+                                    {% elif req.control_type == 'SAFETY' %}安全要求
+                                    {% else %}其他{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                {% if req.risk_level == 'HIGH' %}
+                                <span class="badge bg-danger">高风险</span>
+                                {% elif req.risk_level == 'MEDIUM' %}
+                                <span class="badge bg-warning">中风险</span>
+                                {% else %}
+                                <span class="badge bg-success">低风险</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if req.is_key_characteristic %}
+                                <span class="badge bg-primary">关键</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if req.part %}
+                                <a href="{% url 'part_detail' req.part.pk %}">{{ req.part.part_number }}</a>
+                                {% else %}-{% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'control_requirement_detail' req.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'control_requirement_edit' req.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                暂无控制要求
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                    </li>
+                    {% endif %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

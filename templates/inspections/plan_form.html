@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}编辑检验计划{% else %}新建检验计划{% endif %} - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'plan_list' %}">检验计划</a></li>
+<li class="breadcrumb-item active">{% if is_edit %}编辑检验计划{% else %}新建检验计划{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-{% if is_edit %}pencil{% else %}plus-circle{% endif %} me-2"></i>{% if is_edit %}编辑检验计划{% else %}新建检验计划{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">计划名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="plan_name" value="{% if object %}{{ object.plan_name }}{% endif %}" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">关联零件 <span class="text-danger">*</span></label>
+                            <select class="form-select" name="part" required id="id_part">
+                                <option value="">请选择零件</option>
+                                {% for part in parts %}
+                                <option value="{{ part.id }}" {% if object and object.part_id == part.id %}selected{% endif %}>
+                                    {{ part.part_number }} - {{ part.part_name }} ({{ part.get_status_display }})
+                                </option>
+                                {% empty %}
+                                <option value="" disabled>暂无可选零件，请先创建零件</option>
+                                {% endfor %}
+                            </select>
+                            {% if not parts %}
+                            <div class="form-text text-warning">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                没有可选零件，<a href="{% url 'part_create' %}">点击创建零件</a>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">检验标准</label>
+                            <select class="form-select" name="standard">
+                                <option value="AS9102" {% if object and object.standard == 'AS9102' %}selected{% endif %}>AS9102</option>
+                                <option value="PPAP" {% if object and object.standard == 'PPAP' %}selected{% endif %}>PPAP</option>
+                                <option value="FAI" {% if object and object.standard == 'FAI' %}selected{% endif %}>FAI</option>
+                                <option value="CUSTOM" {% if object and object.standard == 'CUSTOM' %}selected{% endif %}>自定义</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">样本数量</label>
+                            <input type="number" class="form-control" name="sample_size" value="{% if object %}{{ object.sample_size }}{% else %}3{% endif %}" min="1">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">状态</label>
+                            <select class="form-select" name="status">
+                                <option value="DRAFT" {% if object and object.status == 'DRAFT' %}selected{% endif %}>草稿</option>
+                                <option value="PENDING_REVIEW" {% if object and object.status == 'PENDING_REVIEW' %}selected{% endif %}>待审核</option>
+                                {% if is_edit %}
+                                <option value="ACTIVE" {% if object and object.status == 'ACTIVE' %}selected{% endif %}>激活</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" name="description" rows="3" placeholder="请输入检验计划描述...">{% if object %}{{ object.description }}{% endif %}</textarea>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{% url 'plan_list' %}" class="btn btn-secondary">取消</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>{% if is_edit %}保存修改{% else %}创建计划{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

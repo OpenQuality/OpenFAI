@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}零件管理 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li>
+<li class="breadcrumb-item active">零件管理</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">零件管理</h2>
+    <a href="{% url 'part_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>新建零件
+    </a>
+</div>
+
+<!-- 筛选区域 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">关键词搜索</label>
+                <input type="text" class="form-control" name="search" value="{{ search }}" placeholder="零件编号或名称">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">状态</label>
+                <select class="form-select" name="status">
+                    <option value="">全部状态</option>
+                    {% for status_val, status_label in status_choices %}
+                    <option value="{{ status_val }}" {% if status_filter == status_val %}selected{% endif %}>{{ status_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">客户</label>
+                <input type="text" class="form-control" name="customer" value="{{ customer_filter }}" placeholder="客户名称">
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="bi bi-search me-1"></i>筛选
+                </button>
+                <a href="{% url 'part_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-counterclockwise"></i>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>零件编号</th>
+                        <th>零件名称</th>
+                        <th>版本</th>
+                        <th>客户</th>
+                        <th>状态</th>
+                        <th>创建人</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for part in parts %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'part_detail' part.pk %}" class="text-decoration-none">
+                                <strong>{{ part.part_number }}</strong>
+                            </a>
+                        </td>
+                        <td>{{ part.part_name }}</td>
+                        <td><span class="badge bg-info">Rev.{{ part.revision }}</span></td>
+                        <td>{{ part.customer|default:"-" }}</td>
+                        <td>
+                            <span class="badge bg-{% if part.status == 'ACTIVE' %}success{% elif part.status == 'PENDING' %}warning{% else %}secondary{% endif %}">
+                                {{ part.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ part.created_by.username|default:"-" }}</td>
+                        <td>{{ part.created_at|date:"Y-m-d" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'part_detail' part.pk %}" class="btn btn-outline-primary" title="查看">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'drawing_ocr' part.pk %}" class="btn btn-outline-success btn-sm" title="图纸识别（气泡图）">
+                                    <i class="bi bi-cpu"></i>
+                                </a>
+                                <a href="{% url 'part_edit' part.pk %}" class="btn btn-outline-success" title="编辑">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form method="post" action="{% url 'part_delete' part.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除吗？');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="删除">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            暂无零件数据，<a href="{% url 'part_create' %}">点击新建</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if is_paginated %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ search }}&status={{ status_filter }}&customer={{ customer_filter }}">上一页</a>
+                </li>
+                {% endif %}
+                
+                <li class="page-item active">
+                    <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                </li>
+                
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ search }}&status={{ status_filter }}&customer={{ customer_filter }}">下一页</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

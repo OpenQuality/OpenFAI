@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FAI质量评审系统{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/static/assets/favicon.png">
+    <link rel="apple-touch-icon" href="/static/assets/favicon.png">
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --sidebar-width: 260px;
+            --sidebar-collapsed-width: 60px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f1f5f9;
+            color: #1e293b;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%);
+            color: white;
+            z-index: 1000;
+            overflow-y: auto;
+            overflow-x: hidden;
+            transition: width 0.3s ease;
+        }
+        
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+        }
+        
+        .sidebar-brand {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .sidebar-brand-content {
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        
+        .sidebar-brand h4 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.25rem;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+        
+        .sidebar.collapsed .sidebar-brand h4 {
+            opacity: 0;
+            width: 0;
+        }
+        
+        .sidebar-brand small {
+            font-size: 0.75rem;
+            opacity: 0.8;
+        }
+        
+        .sidebar.collapsed .sidebar-brand small {
+            display: none;
+        }
+        
+        .sidebar-toggle {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-toggle:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .sidebar.collapsed .sidebar-toggle {
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .sidebar-toggle i {
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar.collapsed .sidebar-toggle i {
+            transform: rotate(180deg);
+        }
+        
+        .sidebar-nav {
+            padding: 1rem 0;
+        }
+        
+        .nav-section {
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-section-title {
+            padding: 0.55rem 1rem;
+            margin: 0 0.5rem 0.25rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: rgba(255,255,255,0.92);
+            background: rgba(255,255,255,0.1);
+            font-weight: 700;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            transition: opacity 0.3s ease, background 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .nav-section-title:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.18);
+        }
+
+        .nav-section-title .nav-section-caret {
+            font-size: 0.7rem;
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .nav-section.collapsed .nav-section-caret {
+            transform: rotate(-90deg);
+        }
+
+        .nav-section-items {
+            overflow: hidden;
+            transition: max-height 0.25s ease;
+        }
+
+        .nav-section.collapsed .nav-section-items {
+            max-height: 0 !important;
+        }
+
+        .sidebar.collapsed .nav-section-title {
+            opacity: 0;
+            height: 0;
+            padding: 0;
+        }
+
+        /* 折叠到仅图标模式时，分类不再受展开/收起状态影响，始终显示全部图标 */
+        .sidebar.collapsed .nav-section-items {
+            max-height: none !important;
+        }
+
+        .nav-item {
+            margin: 0;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            transition: all 0.2s;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            white-space: nowrap;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        
+        .nav-link.active {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border-left: 3px solid white;
+        }
+        
+        .nav-link i {
+            width: 20px;
+            margin-right: 12px;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+            text-align: center;
+        }
+        
+        .nav-link span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: opacity 0.3s ease;
+        }
+        
+        .sidebar.collapsed .nav-link span {
+            opacity: 0;
+            width: 0;
+        }
+        
+        .sidebar.collapsed .nav-link {
+            justify-content: center;
+            padding: 0.5rem 0;
+        }
+        
+        .sidebar.collapsed .nav-link i {
+            margin-right: 0;
+        }
+        
+        /* Tooltip for collapsed sidebar */
+        .sidebar.collapsed .nav-link {
+            position: relative;
+        }
+        
+        .sidebar.collapsed .nav-link::after {
+            content: attr(data-title);
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1e3a8a;
+            color: white;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            margin-left: 10px;
+            z-index: 1001;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        
+        .sidebar.collapsed .nav-link:hover::after {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+            transition: margin-left 0.3s ease;
+        }
+        
+        .sidebar.collapsed + .main-content {
+            margin-left: var(--sidebar-collapsed-width);
+        }
+        
+        /* Top Navbar */
+        .top-navbar {
+            background: white;
+            padding: 0.75rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+        }
+        
+        .breadcrumb {
+            margin: 0;
+            background: transparent;
+        }
+        
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
+        /* Content Area */
+        .content-area {
+            padding: 1.5rem;
+        }
+        
+        /* Cards */
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            margin-bottom: 1.5rem;
+        }
+        
+        .card-header {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 1rem 1.5rem;
+            font-weight: 600;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        /* Stats Cards */
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        .stat-icon.primary {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        
+        .stat-icon.success {
+            background: #d1fae5;
+            color: #10b981;
+        }
+        
+        .stat-icon.warning {
+            background: #fef3c7;
+            color: #f59e0b;
+        }
+        
+        .stat-icon.danger {
+            background: #fee2e2;
+            color: #ef4444;
+        }
+        
+        .stat-info h3 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin: 0;
+            color: #1e293b;
+        }
+        
+        .stat-info p {
+            margin: 0;
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+        
+        /* Tables */
+        .table {
+            margin: 0;
+        }
+        
+        .table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .table td {
+            vertical-align: middle;
+        }
+        
+        /* Badges */
+        .badge {
+            padding: 0.375rem 0.75rem;
+            font-weight: 500;
+            font-size: 0.75rem;
+        }
+        
+        /* Buttons */
+        .btn-primary {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background: #1d4ed8;
+            border-color: #1d4ed8;
+        }
+        
+        /* Progress bars */
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 992px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+        
+        /* Login Page */
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        }
+        
+        .login-card {
+            width: 100%;
+            max-width: 400px;
+            padding: 2rem;
+        }
+        
+        .login-logo {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .login-logo i {
+            font-size: 3rem;
+            color: white;
+        }
+        
+        .login-logo h2 {
+            color: white;
+            margin-top: 0.5rem;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if user.is_authenticated %}
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="sidebar-brand-content">
+                <h4><i class="bi bi-shield-check me-2"></i><span>FAI系统</span></h4>
+            </div>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+        </div>
+        
+        <nav class="sidebar-nav">
+            {% for section_key, section in filtered_menus.items %}
+            <div class="nav-section" data-section-key="{{ section_key }}">
+                <div class="nav-section-title" onclick="toggleNavSection('{{ section_key }}')">
+                    <span>{{ section.title }}</span>
+                    <i class="bi bi-chevron-down nav-section-caret"></i>
+                </div>
+                <div class="nav-section-items">
+                    {% for item in section.items %}
+                    <div class="nav-item">
+                        {% if item.is_external %}
+                        <a href="{{ item.url }}" class="nav-link" data-title="{{ item.name }}">
+                            <i class="bi {{ item.icon }}"></i><span>{{ item.name }}</span>
+                        </a>
+                        {% else %}
+                        <a href="{% url item.url %}" class="nav-link" data-title="{{ item.name }}">
+                            <i class="bi {{ item.icon }}"></i><span>{{ item.name }}</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </nav>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Navbar -->
+        <div class="top-navbar">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="/">首页</a></li>
+                    {% block breadcrumb %}{% endblock %}
+                </ol>
+            </nav>
+            
+            <div class="user-menu">
+                <div class="dropdown">
+                    <button class="btn btn-link text-dark dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <div class="user-avatar d-inline-flex me-2">
+                            {{ user.username|slice:":1"|upper }}
+                        </div>
+                        {{ user.username }}
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>个人资料</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="bi bi-box-arrow-left me-2"></i>退出登录</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content Area -->
+        <div class="content-area">
+            {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+            {% endif %}
+            
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    {% else %}
+    {% block login_content %}{% endblock %}
+    {% endif %}
+    
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 侧边栏折叠功能
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+
+            // 保存状态到localStorage
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+
+        // 导航分类的展开/折叠
+        function toggleNavSection(key) {
+            const section = document.querySelector(`.nav-section[data-section-key="${key}"]`);
+            if (!section) return;
+            const items = section.querySelector('.nav-section-items');
+            const collapsed = section.classList.toggle('collapsed');
+            items.style.maxHeight = collapsed ? '0px' : items.scrollHeight + 'px';
+            localStorage.setItem(`navSectionCollapsed:${key}`, collapsed);
+        }
+
+        // 页面加载时恢复侧边栏状态、各分类展开/折叠状态，并高亮+展开当前所在分类
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+
+            if (isCollapsed) {
+                sidebar.classList.add('collapsed');
+            }
+
+            const currentPath = window.location.pathname;
+            const links = Array.from(document.querySelectorAll('.sidebar-nav .nav-link'));
+
+            // 优先精确匹配当前路径，高亮对应菜单项
+            let activeLink = links.find(a => a.pathname === currentPath);
+            // 找不到精确匹配时，按一级路径前缀匹配（如 /parts/123/ 归入 /parts/list/ 所在分类）
+            if (!activeLink) {
+                const firstSegment = '/' + (currentPath.split('/')[1] || '');
+                activeLink = links.find(a => firstSegment !== '/' && a.pathname.startsWith(firstSegment));
+            }
+            if (activeLink) {
+                activeLink.classList.add('active');
+            }
+            const activeSectionKey = activeLink ? activeLink.closest('.nav-section')?.dataset.sectionKey : null;
+
+            document.querySelectorAll('.nav-section').forEach(section => {
+                const key = section.dataset.sectionKey;
+                const items = section.querySelector('.nav-section-items');
+                const savedCollapsed = localStorage.getItem(`navSectionCollapsed:${key}`) === 'true';
+                // 当前所在分类始终展开，避免用户找不到自己在哪
+                const collapsed = key === activeSectionKey ? false : savedCollapsed;
+                if (collapsed) {
+                    section.classList.add('collapsed');
+                    items.style.maxHeight = '0px';
+                } else {
+                    items.style.maxHeight = items.scrollHeight + 'px';
+                }
+            });
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}编辑零件{% else %}新建零件{% endif %} - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'part_list' %}">零件管理</a></li>
+<li class="breadcrumb-item active">{% if is_edit %}编辑零件{% else %}新建零件{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-{% if is_edit %}pencil{% else %}plus-circle{% endif %} me-2"></i>
+                {% if is_edit %}编辑零件 - {{ object.part_number }}{% else %}新建零件{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <!-- 产品基本信息 -->
+                    <h6 class="text-primary mb-3"><i class="bi bi-info-circle me-2"></i>产品基本信息</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">零件编号 *</label>
+                            <input type="text" class="form-control" name="part_number" required value="{{ form.part_number.value|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">零件名称 *</label>
+                            <input type="text" class="form-control" name="part_name" required value="{{ form.part_name.value|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">版本</label>
+                            <input type="text" class="form-control" name="revision" value="{{ form.revision.value|default:'A' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">客户</label>
+                            <input type="text" class="form-control" name="customer" value="{{ form.customer.value|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">材料</label>
+                            <input type="text" class="form-control" name="material" value="{{ form.material.value|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">状态</label>
+                            <select class="form-select" name="status">
+                                <option value="DRAFT" {% if form.status.value == 'DRAFT' %}selected{% endif %}>草稿</option>
+                                <option value="PENDING" {% if form.status.value == 'PENDING' %}selected{% endif %}>待审核</option>
+                                <option value="ACTIVE" {% if form.status.value == 'ACTIVE' %}selected{% endif %}>活跃</option>
+                                <option value="INACTIVE" {% if form.status.value == 'INACTIVE' %}selected{% endif %}>停用</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" name="description" rows="2">{{ form.description.value|default:'' }}</textarea>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <!-- 产品生产信息 -->
+                    <h6 class="text-primary mb-3"><i class="bi bi-box-seam me-2"></i>产品生产信息</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">批次/序列号</label>
+                            <input type="text" class="form-control" name="batch_serial_number" value="{{ form.batch_serial_number.value|default:'' }}" placeholder="如: B2024-001">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">订单号</label>
+                            <input type="text" class="form-control" name="order_number" value="{{ form.order_number.value|default:'' }}" placeholder="如: PO-2024-001">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">客户零件编号</label>
+                            <input type="text" class="form-control" name="customer_part_number" value="{{ form.customer_part_number.value|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">生产数量</label>
+                            <input type="number" class="form-control" name="production_quantity" min="0" value="{{ form.production_quantity.value|default:'0' }}">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">首件数量</label>
+                            <input type="number" class="form-control" name="fai_quantity" min="1" value="{{ form.fai_quantity.value|default:'1' }}">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">单位/部门</label>
+                            <input type="text" class="form-control" name="department" value="{{ form.department.value|default:'' }}" placeholder="如: 质检部">
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">操作者</label>
+                            <input type="text" class="form-control" name="operator" value="{{ form.operator.value|default:'' }}" placeholder="操作人员姓名">
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <!-- 文件上传 -->
+                    <h6 class="text-primary mb-3"><i class="bi bi-file-earmark me-2"></i>文件上传</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">PDF文档</label>
+                            {% if object.pdf_file %}
+                            <div class="mb-2">
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-check-circle me-1"></i>已上传: {{ object.pdf_filename }}
+                                </span>
+                            </div>
+                            {% endif %}
+                            <input type="file" class="form-control" name="pdf_file" accept=".pdf,.PDF">
+                            <div class="form-text">
+                                <span class="text-success"><i class="bi bi-check-circle me-1"></i>支持OCR识别</span>
+                                <br>格式: PDF
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">图片文件</label>
+                            {% if object.drawing_file %}
+                            <div class="mb-2">
+                                <span class="badge bg-info">
+                                    <i class="bi bi-check-circle me-1"></i>已上传: {{ object.drawing_filename }}
+                                </span>
+                            </div>
+                            {% endif %}
+                            <input type="file" class="form-control" name="drawing_file" accept=".png,.PNG,.jpg,.jpeg,.JPG,.JPEG,.bmp,.BMP,.gif,.GIF">
+                            <div class="form-text">
+                                <span class="text-success"><i class="bi bi-check-circle me-1"></i>支持OCR识别</span>
+                                <br>格式: PNG, JPG, BMP, GIF
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">CAD文件</label>
+                            {% if object.cad_file %}
+                            <div class="mb-2">
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-check-circle me-1"></i>已上传: {{ object.cad_filename }}
+                                </span>
+                            </div>
+                            {% endif %}
+                            <input type="file" class="form-control" name="cad_file" accept=".SLDPRT,.CATPART,.PRT,.DWG,.DXF,.stp,.step,.STP,.STEP">
+                            <div class="form-text">
+                                <span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>仅存储，不支持解析</span>
+                                <br>格式: SolidWorks, CATIA, NX, AutoCAD (DWG/DXF), STEP
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'part_list' %}" class="btn btn-secondary">取消</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>保存
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

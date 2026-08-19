@@ -1,0 +1,409 @@
+{% extends 'base.html' %}
+
+{% block title %}仪表盘 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">仪表盘</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">仪表盘</h2>
+    <div>
+        <span class="text-muted">欢迎回来，{{ user.username }}！</span>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row mb-4">
+    <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+        <div class="card stat-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded-circle p-3 me-3">
+                        <i class="bi bi-box-seam fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="mb-0 fw-bold">{{ parts_count }}</h3>
+                        <p class="text-muted mb-0 small">零件总数</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 py-2 px-3">
+                <a href="{% url 'part_list' %}" class="text-primary text-decoration-none small">
+                    查看详情 <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+        <div class="card stat-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="stat-icon bg-success bg-opacity-10 text-success rounded-circle p-3 me-3">
+                        <i class="bi bi-clipboard-check fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="mb-0 fw-bold">{{ plans_count }}</h3>
+                        <p class="text-muted mb-0 small">检验计划</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 py-2 px-3">
+                <a href="{% url 'plan_list' %}" class="text-success text-decoration-none small">
+                    查看详情 <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+        <div class="card stat-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning rounded-circle p-3 me-3">
+                        <i class="bi bi-rulers fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="mb-0 fw-bold">{{ batches_count }}</h3>
+                        <p class="text-muted mb-0 small">测量批次</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 py-2 px-3">
+                <a href="{% url 'batch_list' %}" class="text-warning text-decoration-none small">
+                    查看详情 <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger rounded-circle p-3 me-3">
+                        <i class="bi bi-exclamation-circle fs-4"></i>
+                    </div>
+                    <div>
+                        <h3 class="mb-0 fw-bold">{{ pending_workflows }}</h3>
+                        <p class="text-muted mb-0 small">待审批</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 py-2 px-3">
+                <a href="{% url 'workflow_list' %}?status=IN_PROGRESS" class="text-danger text-decoration-none small">
+                    查看详情 <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Stats Row -->
+<div class="row mb-4">
+    <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-folder text-info fs-1 mb-2"></i>
+                <h4 class="mb-0">{{ projects_count }}</h4>
+                <small class="text-muted">FAI项目</small>
+                <div class="mt-2">
+                    <span class="badge bg-success">{{ active_projects }} 进行中</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-file-earmark-text text-primary fs-1 mb-2"></i>
+                <h4 class="mb-0">{{ reports_count }}</h4>
+                <small class="text-muted">检验报告</small>
+                <div class="mt-2">
+                    <span class="badge bg-info">{{ published_reports }} 已发布</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3 mb-md-0">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-hdd text-secondary fs-1 mb-2"></i>
+                <h4 class="mb-0">{{ equipment_count }}</h4>
+                <small class="text-muted">测量设备</small>
+                <div class="mt-2">
+                    <span class="badge bg-success">{{ active_equipment }} 运行中</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-exclamation-triangle text-warning fs-1 mb-2"></i>
+                <h4 class="mb-0">{{ ncr_count }}</h4>
+                <small class="text-muted">不合格报告</small>
+                <div class="mt-2">
+                    <span class="badge bg-danger">{{ open_ncr }} 待处理</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card mb-4">
+    <div class="card-header bg-white">
+        <h5 class="mb-0"><i class="bi bi-lightning me-2 text-warning"></i>快速操作</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-3 col-6 mb-3 mb-md-0">
+                <a href="{% url 'part_create' %}" class="btn btn-outline-primary w-100 py-3">
+                    <i class="bi bi-plus-circle d-block fs-3 mb-2"></i>
+                    <span>新建零件</span>
+                </a>
+            </div>
+            <div class="col-md-3 col-6 mb-3 mb-md-0">
+                <a href="{% url 'plan_create' %}" class="btn btn-outline-success w-100 py-3">
+                    <i class="bi bi-clipboard-plus d-block fs-3 mb-2"></i>
+                    <span>创建检验计划</span>
+                </a>
+            </div>
+            <div class="col-md-3 col-6">
+                <a href="{% url 'batch_create' %}" class="btn btn-outline-info w-100 py-3">
+                    <i class="bi bi-rulers d-block fs-3 mb-2"></i>
+                    <span>新建测量批次</span>
+                </a>
+            </div>
+            <div class="col-md-3 col-6">
+                <a href="{% url 'report_create' %}" class="btn btn-outline-secondary w-100 py-3">
+                    <i class="bi bi-file-earmark-pdf d-block fs-3 mb-2"></i>
+                    <span>创建报告</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activities -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>最近检验计划</h5>
+                <a href="{% url 'plan_list' %}" class="text-decoration-none small">查看全部</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>计划编号</th>
+                                <th>零件</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for plan in recent_plans %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'plan_detail' plan.pk %}" class="text-decoration-none fw-medium">
+                                        {{ plan.plan_number }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if plan.part %}
+                                    {{ plan.part.part_number }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if plan.status == 'ACTIVE' %}success{% elif plan.status == 'PENDING_REVIEW' %}warning{% else %}secondary{% endif %}">
+                                        {{ plan.get_status_display }}
+                                    </span>
+                                </td>
+                                <td><small class="text-muted">{{ plan.created_at|date:"Y-m-d H:i" }}</small></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox d-block mb-2"></i>暂无数据
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-activity me-2 text-success"></i>最近测量批次</h5>
+                <a href="{% url 'batch_list' %}" class="text-decoration-none small">查看全部</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>批次号</th>
+                                <th>检验计划</th>
+                                <th>状态</th>
+                                <th>测量时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for batch in recent_batches %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'batch_detail' batch.pk %}" class="text-decoration-none fw-medium">
+                                        {{ batch.batch_number }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if batch.plan %}
+                                    {{ batch.plan.plan_number }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if batch.status == 'COMPLETED' %}success{% elif batch.status == 'IN_PROGRESS' %}primary{% else %}secondary{% endif %}">
+                                        {{ batch.get_status_display }}
+                                    </span>
+                                </td>
+                                <td><small class="text-muted">{{ batch.measured_at|date:"Y-m-d H:i"|default:"-" }}</small></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox d-block mb-2"></i>暂无数据
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Projects -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-folder me-2 text-info"></i>最近项目</h5>
+                <a href="{% url 'project_list' %}" class="text-decoration-none small">查看全部</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>项目名称</th>
+                                <th>进度</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for project in recent_projects %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'project_detail' project.pk %}" class="text-decoration-none fw-medium">
+                                        {{ project.project_name }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 20px; min-width: 100px;">
+                                        <div class="progress-bar bg-success" style="width: {{ project.progress_percentage }}%;">
+                                            {{ project.progress_percentage }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if project.status == 'COMPLETED' %}success{% elif project.status == 'IN_PROGRESS' %}warning{% else %}secondary{% endif %}">
+                                        {{ project.get_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox d-block mb-2"></i>暂无数据
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-check-circle me-2 text-danger"></i>待审批事项</h5>
+                <a href="{% url 'workflow_list' %}?status=IN_PROGRESS" class="text-decoration-none small">查看全部</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>类型</th>
+                                <th>关联对象</th>
+                                <th>发起人</th>
+                                <th>发起时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for workflow in pending_workflow_list %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-info">{{ workflow.get_workflow_type_display }}</span>
+                                </td>
+                                <td>
+                                    {% if workflow.plan %}
+                                    <a href="{% url 'plan_detail' workflow.plan.pk %}">{{ workflow.plan.plan_number }}</a>
+                                    {% elif workflow.report %}
+                                    <a href="{% url 'report_detail' workflow.report.pk %}">{{ workflow.report.report_number }}</a>
+                                    {% endif %}
+                                </td>
+                                <td>{{ workflow.initiated_by.username }}</td>
+                                <td><small class="text-muted">{{ workflow.initiated_at|date:"Y-m-d H:i" }}</small></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">
+                                    <i class="bi bi-check-circle text-success d-block mb-2 fs-3"></i>
+                                    暂无待审批事项
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.stat-card {
+    transition: transform 0.2s ease-in-out;
+}
+.stat-card:hover {
+    transform: translateY(-3px);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,365 @@
+{% extends 'base.html' %}
+
+{% block title %}FAI质量评审系统 - 首件检验自动化平台{% endblock %}
+
+{% block login_content %}
+<div class="login-container">
+    <div class="container">
+        <div class="row justify-content-center align-items-center min-vh-100">
+            <div class="col-lg-10">
+                <div class="row g-0 align-items-center">
+                    <!-- 左侧介绍 -->
+                    <div class="col-lg-6 text-center text-white p-5">
+                        <div class="mb-4">
+                            <i class="bi bi-shield-check" style="font-size: 5rem;"></i>
+                        </div>
+                        <h1 class="display-5 fw-bold mb-3">FAI质量评审系统</h1>
+                        <p class="lead mb-4">首件检验自动化平台</p>
+                        
+                        <div class="row g-3 mt-4">
+                            <div class="col-6">
+                                <div class="p-3 bg-white bg-opacity-10 rounded">
+                                    <i class="bi bi-cpu display-6 d-block mb-2"></i>
+                                    <small>CAD智能解析</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3 bg-white bg-opacity-10 rounded">
+                                    <i class="bi bi-rulers display-6 d-block mb-2"></i>
+                                    <small>自动数据采集</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3 bg-white bg-opacity-10 rounded">
+                                    <i class="bi bi-graph-up display-6 d-block mb-2"></i>
+                                    <small>实时判定分析</small>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="p-3 bg-white bg-opacity-10 rounded">
+                                    <i class="bi bi-file-pdf display-6 d-block mb-2"></i>
+                                    <small>报告自动生成</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧登录框 -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-lg border-0 rounded-4">
+                            <div class="card-body p-5">
+                                <!-- 消息提示 -->
+                                {% if messages %}
+                                {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                                {% endfor %}
+                                {% endif %}
+                                
+                                {% if error %}
+                                <div class="alert alert-danger alert-dismissible fade show">
+                                    <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                                {% endif %}
+                                
+                                {% if success %}
+                                <div class="alert alert-success alert-dismissible fade show">
+                                    <i class="bi bi-check-circle me-2"></i>{{ success }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                                {% endif %}
+                                
+                                <!-- 登录表单 -->
+                                <div id="loginForm">
+                                    <h4 class="card-title text-center mb-4">登录系统</h4>
+                                    <form method="post" action="{% url 'index' %}" id="loginFormElement">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="login">
+                                        <div class="mb-3">
+                                            <label class="form-label">用户名</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                                <input type="text" class="form-control form-control-lg" name="username" 
+                                                       placeholder="请输入用户名" value="{{ username|default:'' }}" required>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label class="form-label">密码</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                                <input type="password" class="form-control form-control-lg" name="password" 
+                                                       placeholder="请输入密码" required id="passwordInput">
+                                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword()">
+                                                    <i class="bi bi-eye" id="toggleIcon"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="d-flex justify-content-between align-items-center mb-4">
+                                            <div class="form-check">
+                                                <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                                                <label class="form-check-label" for="remember">记住我</label>
+                                            </div>
+                                            <a href="#" onclick="showForgotPassword(); return false;" class="text-decoration-none">忘记密码？</a>
+                                        </div>
+                                        
+                                        <button type="submit" class="btn btn-primary btn-lg w-100 mb-3">
+                                            <i class="bi bi-box-arrow-in-right me-2"></i>登录
+                                        </button>
+                                    </form>
+                                    
+                                    <hr class="my-4">
+                                    
+                                    <div class="text-center">
+                                        <span class="text-muted">还没有账号？</span>
+                                        <a href="#" onclick="showRegister(); return false;" class="fw-bold">立即注册</a>
+                                    </div>
+                                </div>
+                                
+                                <!-- 注册表单 -->
+                                <div id="registerForm" style="display: none;">
+                                    <h4 class="card-title text-center mb-4">注册账号</h4>
+                                    <form method="post" action="{% url 'index' %}" id="registerFormElement">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="register">
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label">用户名 *</label>
+                                                <input type="text" class="form-control" name="reg_username" placeholder="请输入用户名" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">邮箱 *</label>
+                                                <input type="email" class="form-control" name="reg_email" placeholder="请输入邮箱" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">密码 *</label>
+                                                <input type="password" class="form-control" name="reg_password" placeholder="至少6位" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">确认密码 *</label>
+                                                <input type="password" class="form-control" name="reg_password2" placeholder="再次输入" required>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">姓名</label>
+                                                <input type="text" class="form-control" name="reg_fullname" placeholder="真实姓名">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">部门</label>
+                                                <select class="form-select" name="reg_department">
+                                                    <option value="">请选择部门</option>
+                                                    <option value="质量部">质量部</option>
+                                                    <option value="工程部">工程部</option>
+                                                    <option value="生产部">生产部</option>
+                                                    <option value="技术部">技术部</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-success btn-lg w-100 mt-4 mb-3">
+                                            <i class="bi bi-person-plus me-2"></i>注册
+                                        </button>
+                                        <div class="text-center">
+                                            <a href="#" onclick="showLogin(); return false;">返回登录</a>
+                                        </div>
+                                    </form>
+                                </div>
+                                
+                                <!-- 找回密码表单 -->
+                                <div id="forgotForm" style="display: none;">
+                                    <h4 class="card-title text-center mb-4">找回密码</h4>
+                                    <form method="post" action="{% url 'index' %}" id="forgotFormElement">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="action" value="forgot">
+                                        <div class="mb-4">
+                                            <label class="form-label">邮箱地址</label>
+                                            <input type="email" class="form-control form-control-lg" name="forgot_email" 
+                                                   placeholder="请输入注册时的邮箱" required>
+                                            <div class="form-text">我们将向您的邮箱发送密码重置链接</div>
+                                        </div>
+                                        <button type="submit" class="btn btn-warning btn-lg w-100 mb-3">
+                                            <i class="bi bi-envelope me-2"></i>发送重置链接
+                                        </button>
+                                        <div class="text-center">
+                                            <a href="#" onclick="showLogin(); return false;">返回登录</a>
+                                        </div>
+                                    </form>
+                                </div>
+                                
+                                <hr class="my-4">
+                                
+                                <p class="text-muted text-center small mb-0">
+                                    演示账号: <code>admin</code> / <code>admin123</code>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 调试弹窗 -->
+<div class="modal fade" id="debugModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-bug me-2"></i>登录调试信息</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>认证状态:</strong> <span id="debugAuthStatus" class="badge">检查中...</span>
+                </div>
+                <div class="mb-3">
+                    <strong>用户信息:</strong>
+                    <pre id="debugUserInfo" class="bg-light p-2 rounded">-</pre>
+                </div>
+                <div class="mb-3">
+                    <strong>Session信息:</strong>
+                    <pre id="debugSessionInfo" class="bg-light p-2 rounded">-</pre>
+                </div>
+                <div class="mb-3">
+                    <strong>Cookies:</strong>
+                    <pre id="debugCookies" class="bg-light p-2 rounded" style="max-height: 150px; overflow: auto;">-</pre>
+                </div>
+                <div class="mb-3">
+                    <strong>环境信息:</strong>
+                    <table class="table table-sm">
+                        <tr><td>当前URL</td><td id="debugUrl">-</td></tr>
+                        <tr><td>协议</td><td id="debugProtocol">-</td></tr>
+                        <tr><td>主机名</td><td id="debugHostname">-</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="checkAuthStatus()">
+                    <i class="bi bi-arrow-repeat me-1"></i>刷新状态
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 调试按钮 -->
+<button class="btn btn-sm btn-outline-secondary position-fixed" style="bottom: 20px; right: 20px; z-index: 9999;" 
+        onclick="showDebugModal()" title="登录调试">
+    <i class="bi bi-bug"></i>
+</button>
+
+<script>
+// 切换登录/注册/找回密码表单
+function showLogin() {
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'none';
+}
+
+function showRegister() {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'block';
+    document.getElementById('forgotForm').style.display = 'none';
+}
+
+function showForgotPassword() {
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'block';
+}
+
+// 切换密码显示
+function togglePassword() {
+    const input = document.getElementById('passwordInput');
+    const icon = document.getElementById('toggleIcon');
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        input.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+}
+
+// 显示调试弹窗
+function showDebugModal() {
+    const modal = new bootstrap.Modal(document.getElementById('debugModal'));
+    modal.show();
+    checkAuthStatus();
+}
+
+// 检查认证状态
+async function checkAuthStatus() {
+    try {
+        const response = await fetch('/api/v1/accounts/debug-auth/');
+        
+        // 先检查响应状态
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // 尝试解析 JSON
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            // 如果不是有效的 JSON，获取文本并显示
+            const text = await response.text();
+            console.error('响应不是有效的 JSON:', text);
+            throw new Error('服务器返回了非 JSON 响应');
+        }
+        
+        const statusEl = document.getElementById('debugAuthStatus');
+        if (data.user && data.user.is_authenticated) {
+            statusEl.textContent = '已认证 ✓';
+            statusEl.className = 'badge bg-success';
+        } else {
+            statusEl.textContent = '未认证 ✗';
+            statusEl.className = 'badge bg-danger';
+        }
+        
+        document.getElementById('debugUserInfo').textContent = JSON.stringify(data.user || {}, null, 2);
+        document.getElementById('debugSessionInfo').textContent = JSON.stringify(data.session || {}, null, 2);
+        document.getElementById('debugCookies').textContent = JSON.stringify(data.cookies || {}, null, 2);
+        
+        document.getElementById('debugUrl').textContent = window.location.href;
+        document.getElementById('debugProtocol').textContent = window.location.protocol;
+        document.getElementById('debugHostname').textContent = window.location.hostname;
+        
+        // 如果已认证，弹窗提示
+        if (data.user && data.user.is_authenticated) {
+            alert('登录成功！\n用户: ' + (data.user.username || '未知') + '\n即将跳转到仪表盘...');
+            window.location.href = '/dashboard/';
+        }
+        
+    } catch (e) {
+        document.getElementById('debugAuthStatus').textContent = '检查失败';
+        document.getElementById('debugAuthStatus').className = 'badge bg-warning';
+        console.error('检查认证状态失败:', e);
+        // 只在调试模式下显示 alert，生产环境可以静默处理
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            alert('检查认证状态失败: ' + e.message);
+        }
+    }
+}
+
+// 表单提交时显示调试信息
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('loginFormElement');
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            // 先检查登录状态
+            console.log('登录表单提交中...');
+            console.log('用户名:', this.querySelector('[name="username"]').value);
+            console.log('CSRF Token:', this.querySelector('[name="csrfmiddlewaretoken"]').value);
+        });
+    }
+    
+    // 页面加载时检查认证状态
+    checkAuthStatus();
+});
+</script>
+{% endblock %}

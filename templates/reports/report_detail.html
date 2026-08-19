@@ -1,0 +1,535 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ report.report_number }} - 检验报告 - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'report_list' %}">检验报告</a></li>
+<li class="breadcrumb-item active">{{ report.report_number }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ report.title }}</h2>
+        <p class="text-muted mb-0">{{ report.report_number }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <span class="badge bg-{% if report.status == 'PUBLISHED' %}success{% elif report.status == 'COMPLETED' %}primary{% elif report.status == 'GENERATING' %}warning{% else %}secondary{% endif %} fs-6">
+            {{ report.get_status_display }}
+        </span>
+        <a href="{% url 'report_edit' report.pk %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>编辑
+        </a>
+        <form method="post" action="{% url 'report_delete' report.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除这个报告吗？');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">
+                <i class="bi bi-trash me-1"></i>删除
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- AS9102 Form 1 - 零件号责任 (Part Number Accountability) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>Form 1 - 零件号责任
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">报告编号</label>
+                        <p class="mb-0 fw-bold">{{ report.report_number }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">报告标题</label>
+                        <p class="mb-0">{{ report.title }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">零件编号</label>
+                        <p class="mb-0">
+                            {% if report.plan.part %}
+                            <a href="{% url 'part_detail' report.plan.part.pk %}">{{ report.plan.part.part_number }}</a>
+                            {% else %}-{% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">零件名称 / 版次</label>
+                        <p class="mb-0">{{ report.plan.part.part_name|default:"-" }} / Rev.{{ report.plan.part.revision|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">客户 / 供方</label>
+                        <p class="mb-0">{{ report.plan.part.customer|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">检验计划</label>
+                        <p class="mb-0">
+                            {% if report.plan %}
+                            <a href="{% url 'plan_detail' report.plan.pk %}">{{ report.plan.plan_number }}</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">测量批次</label>
+                        <p class="mb-0">
+                            {% if report.batch %}
+                            <a href="{% url 'batch_detail' report.batch.pk %}">{{ report.batch.batch_number }}</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">标准</label>
+                        <p class="mb-0">{{ report.plan.get_standard_display|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="text-muted small">总体结论</label>
+                        <p class="mb-0">
+                            {% if report.conclusion == 'PASS' %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>合格</span>
+                            {% elif report.conclusion == 'FAIL' %}
+                            <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>不合格</span>
+                            {% else %}
+                            <span class="badge bg-secondary">待判定</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AS9102 Form 2 - 产品责任 (Material / Special Process / Functional Test) -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clipboard-data me-2"></i>Form 2 - 产品责任（原材料 / 特殊工艺 / 功能测试）</span>
+            </div>
+            <div class="card-body">
+                <!-- 原材料证书 -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">原材料证书
+                        {% if report.material_compliant is None %}
+                        <span class="badge bg-secondary">未填写</span>
+                        {% elif report.material_compliant %}
+                        <span class="badge bg-success">符合</span>
+                        {% else %}
+                        <span class="badge bg-danger">不符合</span>
+                        {% endif %}
+                    </h6>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#materialModal">
+                        <i class="bi bi-plus"></i>添加
+                    </button>
+                </div>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-hover">
+                        <thead><tr><th>材料规范</th><th>证书编号</th><th>供应商</th><th>批次</th><th>符合性</th><th>附件</th></tr></thead>
+                        <tbody>
+                            {% for m in report.material_certifications.all %}
+                            <tr>
+                                <td>{{ m.material_spec }}</td>
+                                <td>{{ m.cert_number|default:"-" }}</td>
+                                <td>{{ m.supplier|default:"-" }}</td>
+                                <td>{{ m.batch_number|default:"-" }}</td>
+                                <td>{% if m.compliant %}<span class="badge bg-success">符合</span>{% else %}<span class="badge bg-danger">不符合</span>{% endif %}</td>
+                                <td>{% if m.attachment %}<a href="{{ m.attachment.url }}" target="_blank"><i class="bi bi-paperclip"></i></a>{% else %}-{% endif %}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted py-2">暂无记录</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 特殊工艺 -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">特殊工艺记录
+                        {% if report.special_process_compliant is None %}
+                        <span class="badge bg-secondary">未填写</span>
+                        {% elif report.special_process_compliant %}
+                        <span class="badge bg-success">符合</span>
+                        {% else %}
+                        <span class="badge bg-danger">不符合</span>
+                        {% endif %}
+                    </h6>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#processModal">
+                        <i class="bi bi-plus"></i>添加
+                    </button>
+                </div>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-hover">
+                        <thead><tr><th>工艺类型</th><th>规范编号</th><th>承做单位</th><th>合格证号</th><th>符合性</th><th>附件</th></tr></thead>
+                        <tbody>
+                            {% for p in report.special_processes.all %}
+                            <tr>
+                                <td>{{ p.get_process_type_display }}</td>
+                                <td>{{ p.spec_number|default:"-" }}</td>
+                                <td>{{ p.processor|default:"-" }}</td>
+                                <td>{{ p.cert_number|default:"-" }}</td>
+                                <td>{% if p.compliant %}<span class="badge bg-success">符合</span>{% else %}<span class="badge bg-danger">不符合</span>{% endif %}</td>
+                                <td>{% if p.attachment %}<a href="{{ p.attachment.url }}" target="_blank"><i class="bi bi-paperclip"></i></a>{% else %}-{% endif %}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="6" class="text-center text-muted py-2">暂无记录</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 功能测试 -->
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">功能测试记录
+                        {% if report.functional_test_compliant is None %}
+                        <span class="badge bg-secondary">未填写</span>
+                        {% elif report.functional_test_compliant %}
+                        <span class="badge bg-success">符合</span>
+                        {% else %}
+                        <span class="badge bg-danger">不符合</span>
+                        {% endif %}
+                    </h6>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#testModal">
+                        <i class="bi bi-plus"></i>添加
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead><tr><th>测试项目</th><th>依据规范</th><th>结果摘要</th><th>符合性</th><th>附件</th></tr></thead>
+                        <tbody>
+                            {% for t in report.functional_tests.all %}
+                            <tr>
+                                <td>{{ t.test_name }}</td>
+                                <td>{{ t.spec_reference|default:"-" }}</td>
+                                <td>{{ t.result_summary|truncatechars:30|default:"-" }}</td>
+                                <td>{% if t.compliant %}<span class="badge bg-success">符合</span>{% else %}<span class="badge bg-danger">不符合</span>{% endif %}</td>
+                                <td>{% if t.attachment %}<a href="{{ t.attachment.url }}" target="_blank"><i class="bi bi-paperclip"></i></a>{% else %}-{% endif %}</td>
+                            </tr>
+                            {% empty %}
+                            <tr><td colspan="5" class="text-center text-muted py-2">暂无记录</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- AS9102 Form 3 - 特性责任 (Characteristic Accountability) -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-file-text me-2"></i>Form 3 - 特性责任（尺寸实测结果）
+            </div>
+            <div class="card-body">
+                {% with accountability=report.plan.characteristic_accountability %}
+                {% if accountability %}
+                <div class="alert {% if accountability.is_complete %}alert-success{% else %}alert-warning{% endif %} py-2 px-3 mb-3 small">
+                    <i class="bi bi-{% if accountability.is_complete %}check-circle{% else %}exclamation-triangle{% endif %} me-1"></i>
+                    特性完整性核对：图纸解析出 {{ accountability.total_dimensions }} 个尺寸，本计划已建立 {{ accountability.covered_characteristics }} 个检验特性
+                    （覆盖率 {{ accountability.coverage_pct|default:"-" }}%）。
+                    {% if not accountability.is_complete %}<strong>未达到AS9102要求的100%特性责任覆盖，请补充检验特性。</strong>{% endif %}
+                    {% if not accountability.extraction_reviewed %}<strong class="text-danger">该图纸识别结果尚未人工复核确认。</strong>{% endif %}
+                </div>
+                {% endif %}
+                {% endwith %}
+                {% if report.summary %}
+                <pre class="mb-0" style="white-space: pre-wrap; font-family: 'Courier New', monospace; background: #f8f9fa; padding: 15px; border-radius: 5px;">{{ report.summary }}</pre>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-file-earmark display-4 d-block mb-3"></i>
+                    <p>报告尚未生成，请点击"生成报告"按钮</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <!-- 操作面板 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-lightning me-2"></i>操作
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    {% if report.status == 'DRAFT' or report.status == 'GENERATING' %}
+                    <form method="post" action="{% url 'report_generate' report.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="bi bi-gear me-1"></i>{% if report.status == 'GENERATING' %}重新生成报告{% else %}生成报告{% endif %}
+                        </button>
+                    </form>
+                    {% elif report.status == 'COMPLETED' %}
+                    <a href="{% url 'report_download' report.pk %}" class="btn btn-primary">
+                        <i class="bi bi-download me-1"></i>下载报告
+                    </a>
+                    <form method="post" action="{% url 'report_publish' report.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-success w-100" onclick="return confirm('确定要发布此报告吗？发布后将无法修改。');">
+                            <i class="bi bi-send me-1"></i>发布报告
+                        </button>
+                    </form>
+                    {% elif report.status == 'PUBLISHED' %}
+                    <a href="{% url 'report_download' report.pk %}" class="btn btn-primary">
+                        <i class="bi bi-download me-1"></i>下载报告
+                    </a>
+                    <span class="text-muted small text-center">
+                        <i class="bi bi-check-circle text-success me-1"></i>报告已发布
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 时间信息 -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-clock me-2"></i>时间信息
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted small">创建时间</label>
+                    <p class="mb-0">{{ report.created_at|date:"Y-m-d H:i" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">生成时间</label>
+                    <p class="mb-0">
+                        {% if report.generated_at %}
+                        {{ report.generated_at|date:"Y-m-d H:i" }}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">发布时间</label>
+                    <p class="mb-0">
+                        {% if report.published_at %}
+                        {{ report.published_at|date:"Y-m-d H:i" }}
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </p>
+                </div>
+                {% if report.generated_by %}
+                <div class="mb-3">
+                    <label class="text-muted small">生成人</label>
+                    <p class="mb-0">{{ report.generated_by.username }}</p>
+                </div>
+                {% endif %}
+                {% if report.published_by %}
+                <div class="mb-3">
+                    <label class="text-muted small">发布人</label>
+                    <p class="mb-0">{{ report.published_by.username }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form2: 添加原材料证书 -->
+<div class="modal fade" id="materialModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加原材料证书</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="materialForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">材料规范/牌号 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="m_material_spec" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">证书编号</label>
+                        <input type="text" class="form-control" id="m_cert_number">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">供应商</label>
+                        <input type="text" class="form-control" id="m_supplier">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">批次/炉批号</label>
+                        <input type="text" class="form-control" id="m_batch_number">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="m_compliant" checked>
+                        <label class="form-check-label" for="m_compliant">符合要求</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">证书附件</label>
+                        <input type="file" class="form-control" id="m_attachment">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Form2: 添加特殊工艺记录 -->
+<div class="modal fade" id="processModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加特殊工艺记录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="processForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">工艺类型 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="p_process_type" required>
+                            <option value="HEAT_TREATMENT">热处理</option>
+                            <option value="NDT">无损检测</option>
+                            <option value="PLATING">电镀</option>
+                            <option value="WELDING">焊接</option>
+                            <option value="COATING">涂层/喷涂</option>
+                            <option value="PAINTING">涂装</option>
+                            <option value="OTHER">其他</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">执行规范编号</label>
+                        <input type="text" class="form-control" id="p_spec_number">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">工艺供方/承做单位</label>
+                        <input type="text" class="form-control" id="p_processor">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">合格证编号</label>
+                        <input type="text" class="form-control" id="p_cert_number">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="p_compliant" checked>
+                        <label class="form-check-label" for="p_compliant">符合要求</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">合格证附件</label>
+                        <input type="file" class="form-control" id="p_attachment">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Form2: 添加功能测试记录 -->
+<div class="modal fade" id="testModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加功能测试记录</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="testForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">测试项目 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="t_test_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">依据规范/图纸要求</label>
+                        <input type="text" class="form-control" id="t_spec_reference">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">测试结果摘要</label>
+                        <textarea class="form-control" id="t_result_summary" rows="3"></textarea>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="t_compliant" checked>
+                        <label class="form-check-label" for="t_compliant">符合要求</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">测试报告附件</label>
+                        <input type="file" class="form-control" id="t_attachment">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const reportId = '{{ report.pk }}';
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+}
+
+function submitForm2(url, formData, modalId) {
+    fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        body: formData
+    }).then(async response => {
+        const data = await response.json().catch(() => ({}));
+        if (response.ok) {
+            bootstrap.Modal.getOrCreateInstance(document.getElementById(modalId)).hide();
+            location.reload();
+        } else {
+            alert('保存失败：' + JSON.stringify(data));
+        }
+    });
+}
+
+document.getElementById('materialForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append('report', reportId);
+    fd.append('material_spec', document.getElementById('m_material_spec').value);
+    fd.append('cert_number', document.getElementById('m_cert_number').value);
+    fd.append('supplier', document.getElementById('m_supplier').value);
+    fd.append('batch_number', document.getElementById('m_batch_number').value);
+    fd.append('compliant', document.getElementById('m_compliant').checked);
+    const file = document.getElementById('m_attachment').files[0];
+    if (file) fd.append('attachment', file);
+    submitForm2('/api/v1/reports/material-certifications/', fd, 'materialModal');
+});
+
+document.getElementById('processForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append('report', reportId);
+    fd.append('process_type', document.getElementById('p_process_type').value);
+    fd.append('spec_number', document.getElementById('p_spec_number').value);
+    fd.append('processor', document.getElementById('p_processor').value);
+    fd.append('cert_number', document.getElementById('p_cert_number').value);
+    fd.append('compliant', document.getElementById('p_compliant').checked);
+    const file = document.getElementById('p_attachment').files[0];
+    if (file) fd.append('attachment', file);
+    submitForm2('/api/v1/reports/special-processes/', fd, 'processModal');
+});
+
+document.getElementById('testForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append('report', reportId);
+    fd.append('test_name', document.getElementById('t_test_name').value);
+    fd.append('spec_reference', document.getElementById('t_spec_reference').value);
+    fd.append('result_summary', document.getElementById('t_result_summary').value);
+    fd.append('compliant', document.getElementById('t_compliant').checked);
+    const file = document.getElementById('t_attachment').files[0];
+    if (file) fd.append('attachment', file);
+    submitForm2('/api/v1/reports/functional-tests/', fd, 'testModal');
+});
+</script>
+{% endblock %}

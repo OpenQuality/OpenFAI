@@ -1,0 +1,1679 @@
+{% extends 'base.html' %}
+
+{% block title %}图纸识别-气泡图标注 - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'part_list' %}">零件管理</a></li>
+<li class="breadcrumb-item"><a href="{% url 'part_detail' part.pk %}">{{ part.part_number }}</a></li>
+<li class="breadcrumb-item active">图纸识别-气泡图标注</li>
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">图纸识别-气泡图标注</h2>
+        <p class="text-muted mb-0">{{ part.part_number }} - {{ part.part_name }}</p>
+    </div>
+    <div>
+        <a href="{% url 'part_detail' part.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>返回
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 左侧：图纸显示 -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-image me-2"></i>文件预览 <small class="text-muted" id="previewFileName"></small></span>
+                <div id="zoomControls" style="display: none;">
+                    <button class="btn btn-sm btn-outline-primary" id="btnZoomIn" title="放大">
+                        <i class="bi bi-zoom-in"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" id="btnZoomOut" title="缩小">
+                        <i class="bi bi-zoom-out"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" id="btnReset" title="重置">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-info" id="btnToggleBubbles" title="显示/隐藏气泡">
+                        <i class="bi bi-chat-dots"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0" style="height: 600px; overflow: auto; position: relative;">
+                <!-- 图片/PDF预览容器（统一使用图片方式预览） -->
+                <div id="imagePreviewContainer" class="position-relative" style="display: none !important;">
+                    <img id="drawingImage" src="" class="img-fluid" style="cursor: crosshair; transform-origin: top left;" alt="图纸">
+                    <!-- 气泡标注层 -->
+                    <div id="bubbleLayer" class="position-absolute" style="top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+                </div>
+                
+                <!-- 加载中提示 -->
+                <div id="loadingContainer" style="display: none !important;" class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-2 text-muted">正在加载预览...</p>
+                    </div>
+                </div>
+                
+                <!-- CAD预览容器（提示信息）- 仅当选择CAD文件时显示 -->
+                <div id="cadPreviewContainer" style="display: none !important;" class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center p-5">
+                        <i class="bi bi-file-earmark-richtext display-1 text-secondary"></i>
+                        <h5 class="mt-3">CAD文件预览</h5>
+                        <p class="text-muted" id="cadFileName">{{ part.cad_filename|default:"CAD文件" }}</p>
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            CAD文件（DWG/DXF）暂不支持在线预览<br>
+                            <small>请将CAD文件导出为图片格式后上传到"图片文件"</small>
+                        </div>
+                        {% if part.cad_file %}
+                        <a href="{{ part.cad_file.url }}" class="btn btn-outline-primary mt-2" download>
+                            <i class="bi bi-download me-1"></i>下载CAD文件
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- 无文件提示 -->
+                <div id="noFileContainer" style="display: none !important;" class="d-flex align-items-center justify-content-center h-100">
+                    <div class="text-center text-muted">
+                        <i class="bi bi-image display-1"></i>
+                        <p class="mt-3">请先上传文件</p>
+                        <a href="{% url 'part_detail' part.pk %}" class="btn btn-primary">上传文件</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 工具栏 -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <label class="form-label small text-muted mb-1">选择要识别的文件</label>
+                        <select class="form-select form-select-sm" id="fileTypeSelect">
+                            {% for attachment in ocr_attachments %}
+                            <option value="{{ attachment.id }}" data-url="{{ attachment.file.url }}" data-type="{{ attachment.file_type }}">
+                                {% if attachment.file_type == 'PDF' %}📄 {% elif attachment.file_type == 'IMAGE' %}📷 {% elif attachment.file_type == 'CAD' %}📐 {% else %}📎 {% endif %}{{ attachment.file_name }}
+                            </option>
+                            {% empty %}
+                            <option value="">暂无可识别的文件</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small text-muted mb-1">AI模型</label>
+                        <select class="form-select form-select-sm" id="ocrModelSelect">
+                            {% for engine in ocr_engines %}
+                            <option value="{{ engine.id }}">
+                                {{ engine.name }}{% if engine.type == 'local' %} 🖥️{% else %} ☁️{% endif %}
+                            </option>
+                            {% empty %}
+                            <option value="">未配置可用引擎，请前往引擎配置页面设置</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="d-flex align-items-center gap-2 justify-content-end">
+                            <div class="alert alert-info py-1 px-2 mb-0 small">
+                                <i class="bi bi-info-circle me-1"></i>
+                                <span id="fileTypeInfo">将识别: 附件</span>
+                            </div>
+                            <button class="btn btn-success" id="btnOCR">
+                                <i class="bi bi-cpu me-1"></i>OCR识别
+                            </button>
+                            <button class="btn btn-outline-primary" id="btnExport">
+                                <i class="bi bi-download me-1"></i>导出
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- 支持的文件类型说明 -->
+                <div class="mt-3 pt-2 border-top">
+                    <small class="text-muted">
+                        <i class="bi bi-question-circle me-1"></i>
+                        <strong>OCR支持格式：</strong>
+                        <span class="text-success"><i class="bi bi-check-circle me-1"></i>图片（PNG/JPG/BMP/GIF）</span>
+                        <span class="text-success ms-2"><i class="bi bi-check-circle me-1"></i>PDF文档</span>
+                        <span class="text-warning ms-2"><i class="bi bi-exclamation-triangle me-1"></i>CAD文件（需配置本地引擎）</span>
+                    </small>
+                    <a href="{% url 'ocr_engines' %}" class="ms-3 small"><i class="bi bi-gear me-1"></i>OCR引擎配置</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- OCR识别结果列表 -->
+        <div class="card mt-3" id="extractionResultsCard">
+            <div class="card-header">
+                <i class="bi bi-diagram-3 me-2"></i>OCR识别结果
+            </div>
+            <div class="card-body p-0" style="max-height: 250px; overflow-y: auto;" id="extractionResultsBody">
+                {% if extractions %}
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th>识别时间</th>
+                            <th>来源文件</th>
+                            <th>状态</th>
+                            <th>尺寸数量</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for extraction in extractions %}
+                        <tr>
+                            <td>{{ extraction.created_at|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                <span class="badge bg-info">{{ extraction.extraction_data.source_file|default:"未知" }}</span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if extraction.status == 'COMPLETED' %}success{% elif extraction.status == 'PROCESSING' %}warning{% else %}danger{% endif %}">
+                                    {{ extraction.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{% if extraction.dimensions.count > 0 %}{{ extraction.dimensions.count }}{% else %}{{ extraction.extraction_data.dimensions|length|default:0 }}{% endif %}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#extractionModal" data-id="{{ extraction.id }}" title="查看详情">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm" onclick="createPlanFromExtraction('{{ extraction.id }}')" title="创建检验计划">
+                                        <i class="bi bi-clipboard-plus"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger btn-sm" onclick="deleteExtraction('{{ extraction.id }}')" title="删除">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center text-muted py-3">
+                    <small>暂无识别记录</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右侧：识别结果 -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-check me-2"></i>识别结果</span>
+                <div>
+                    <button class="btn btn-sm btn-outline-primary" id="btnAddItem">
+                        <i class="bi bi-plus"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" id="btnDeleteItem">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0" style="max-height: 500px; overflow-y: auto;">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th width="30"><input type="checkbox" id="selectAll"></th>
+                            <th>序号</th>
+                            <th>尺寸</th>
+                            <th>公差</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dimensionList">
+                        <!-- 动态添加 -->
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-4">
+                                点击"OCR识别"开始识别图纸
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- 模板管理 -->
+        <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-earmark-ruled me-2"></i>识别模板</span>
+                <a href="#" class="btn btn-sm btn-link" onclick="refreshTemplates(); return false;">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </a>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-3">
+                    <i class="bi bi-info-circle me-1"></i>
+                    模板用于保存常用的识别配置，加载模板后可快速应用预设尺寸。
+                </p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary btn-sm" onclick="saveAsTemplate()">
+                        <i class="bi bi-save me-1"></i>保存当前结果为模板
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="showTemplatesModal()">
+                        <i class="bi bi-folder-open me-1"></i>查看并加载模板
+                    </button>
+                </div>
+                <div id="templatesList" class="mt-3" style="max-height: 200px; overflow-y: auto;">
+                    <!-- 模板列表将动态加载 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" id="btnSaveResults">
+                        <i class="bi bi-check-lg me-1"></i>保存并确认复核
+                    </button>
+                    <button class="btn btn-success" id="btnGenerateTable">
+                        <i class="bi bi-table me-1"></i>生成检测表
+                    </button>
+                    <small class="text-muted">提示：需先"保存并确认复核"，才能生成检验计划</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 检验计划列表 -->
+        <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clipboard-check me-2"></i>检验计划列表</span>
+                <a href="{% url 'plan_create' %}?part={{ part.pk }}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-plus"></i>
+                </a>
+            </div>
+            <div class="card-body p-0" style="max-height: 200px; overflow-y: auto;">
+                <div class="list-group list-group-flush">
+                    {% for plan in inspection_plans %}
+                    <a href="{% url 'plan_detail' plan.pk %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ plan.plan_number }}</h6>
+                            <span class="badge bg-{% if plan.status == 'ACTIVE' %}success{% else %}secondary{% endif %}">{{ plan.get_status_display }}</span>
+                        </div>
+                        <small class="text-muted">{{ plan.plan_name }}</small>
+                    </a>
+                    {% empty %}
+                    <div class="text-center text-muted py-3">
+                        <small>暂无检验计划</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 尺寸编辑模态框 -->
+<div class="modal fade" id="editDimensionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑尺寸</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="dimensionForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">尺寸编号</label>
+                            <input type="text" class="form-control" id="dimId" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">尺寸名称</label>
+                            <input type="text" class="form-control" id="dimName" placeholder="如: 外径">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">理论值</label>
+                            <input type="number" step="0.001" class="form-control" id="nominalValue">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">上公差</label>
+                            <input type="number" step="0.001" class="form-control" id="upperTolerance" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">下公差</label>
+                            <input type="number" step="0.001" class="form-control" id="lowerTolerance" value="0">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">单位</label>
+                            <select class="form-select" id="unit">
+                                <option value="mm">mm</option>
+                                <option value="°">° (度)</option>
+                                <option value="μm">μm (微米)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">尺寸类型</label>
+                            <select class="form-select" id="dimType">
+                                <option value="LINEAR">线性尺寸</option>
+                                <option value="DIAMETER">直径</option>
+                                <option value="RADIUS">半径</option>
+                                <option value="ANGULAR">角度</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="isCritical">
+                        <label class="form-check-label" for="isCritical">关键特性</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="btnSaveDimension">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- OCR详情弹窗 -->
+<div class="modal fade" id="extractionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">识别结果详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="extractionModalBody">
+                <p class="text-muted text-center">加载中...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 文件URL配置 - 从附件列表获取
+const fileUrls = {
+    {% for attachment in ocr_attachments %}
+    {% if attachment.is_legacy %}
+    '{{ attachment.id }}': {
+        url: '{{ attachment.file.url }}',
+        name: '{{ attachment.file_name }}',
+        type: '{{ attachment.file_type }}',
+        is_legacy: true
+    }{% if not forloop.last %},{% endif %}
+    {% else %}
+    '{{ attachment.id }}': {
+        url: '{{ attachment.file.url }}',
+        name: '{{ attachment.file_name }}',
+        type: '{{ attachment.file_type }}'
+    }{% if not forloop.last %},{% endif %}
+    {% endif %}
+    {% endfor %}
+};
+
+// 识别数据存储
+let dimensions = [];
+let selectedItems = new Set();
+let currentMode = 'select';
+let bubbleCounter = 0;
+let currentModel = 'cloud_ai';
+let currentFileType = 'drawing';
+let bubblesVisible = true;
+let zoomLevel = 1;
+
+
+// 获取可用模型列表
+async function loadModels() {
+    try {
+        const response = await fetch('/api/v1/parts/ocr_models/');
+        const data = await response.json();
+        if (data.models) {
+            const select = document.getElementById('ocrModelSelect');
+            if (select) {
+                select.innerHTML = data.models.map(m => 
+                    `<option value="${m.value}" ${m.value === data.current_model ? 'selected' : ''}>${m.label}</option>`
+                ).join('');
+                currentModel = data.current_model;
+            }
+        }
+    } catch (e) {
+        console.log('无法加载模型列表，使用默认模型');
+    }
+}
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadModels();
+    
+    // 获取初始文件类型并切换预览
+    const select = document.getElementById('fileTypeSelect');
+    if (select && select.options.length > 0) {
+        currentFileType = select.value;
+        // 立即切换到对应的预览
+        switchPreview(currentFileType);
+        updateFileTypeInfo();
+    }
+});
+
+// 切换预览容器
+function switchPreview(fileType) {
+    console.log('切换预览到:', fileType);
+    currentFileType = fileType;
+    
+    // 获取所有容器元素
+    const imageContainer = document.getElementById('imagePreviewContainer');
+    const cadContainer = document.getElementById('cadPreviewContainer');
+    const noFileContainer = document.getElementById('noFileContainer');
+    const loadingContainer = document.getElementById('loadingContainer');
+    const zoomControls = document.getElementById('zoomControls');
+    const bubbleLayer = document.getElementById('bubbleLayer');
+    const fileNameSpan = document.getElementById('previewFileName');
+    
+    // 强制隐藏所有容器 - 使用setProperty确保覆盖!important
+    const hideContainer = (el) => {
+        if (el) {
+            el.style.setProperty('display', 'none', 'important');
+        }
+    };
+    
+    const showContainer = (el, displayValue) => {
+        if (el) {
+            el.style.setProperty('display', displayValue, 'important');
+        }
+    };
+    
+    hideContainer(imageContainer);
+    hideContainer(cadContainer);
+    hideContainer(noFileContainer);
+    hideContainer(loadingContainer);
+    if (zoomControls) zoomControls.style.display = 'none';
+    if (bubbleLayer) bubbleLayer.innerHTML = '';
+    
+    // 获取文件信息
+    const fileInfo = fileUrls ? fileUrls[fileType] : null;
+    console.log('文件信息:', fileInfo, 'fileUrls:', fileUrls);
+    
+    if (!fileInfo) {
+        // 没有对应文件，显示无文件提示
+        showContainer(noFileContainer, 'flex');
+        if (fileNameSpan) fileNameSpan.textContent = '- 无文件';
+        return;
+    }
+    
+    // 更新文件名显示
+    if (fileNameSpan) fileNameSpan.textContent = '- ' + fileInfo.name;
+    
+    // 根据文件类型显示对应的预览容器（从fileInfo获取实际类型）
+    const actualFileType = fileInfo.type ? fileInfo.type.toUpperCase() : 'IMAGE';
+    
+    if (actualFileType === 'CAD') {
+        // CAD文件预览 - 显示提示信息
+        showContainer(cadContainer, 'flex');
+        const cadFileNameEl = document.getElementById('cadFileName');
+        if (cadFileNameEl) cadFileNameEl.textContent = fileInfo.name;
+    } else {
+        // 图片和PDF统一使用图片预览方式
+        // PDF通过后端API转为图片，不再直接访问media文件
+        showContainer(loadingContainer, 'flex');
+        
+        const img = document.getElementById('drawingImage');
+        
+        if (actualFileType === 'PDF' || actualFileType === 'IMAGE') {
+            // 构建预览URL
+            let previewUrl;
+            if (fileInfo.is_legacy) {
+                // 旧字段文件：使用Part的pdf_preview API
+                previewUrl = '/api/v1/parts/parts/{{ part.pk }}/pdf_preview/?file_type=' + 
+                    (actualFileType === 'PDF' ? 'pdf' : 'drawing');
+            } else {
+                // 新附件文件：使用Attachment的preview API
+                previewUrl = '/api/v1/parts/attachments/' + fileType + '/preview/';
+            }
+            
+            console.log('预览URL:', previewUrl);
+            
+            img.onload = function() {
+                hideContainer(loadingContainer);
+                showContainer(imageContainer, 'block');
+                if (zoomControls) zoomControls.style.display = 'block';
+                if (dimensions.length > 0) {
+                    renderBubbles();
+                }
+            };
+            img.onerror = function() {
+                hideContainer(loadingContainer);
+                showContainer(imageContainer, 'block');
+                console.error('预览图片加载失败');
+            };
+            img.src = previewUrl;
+        } else {
+            // 其他类型，直接使用原URL
+            img.src = fileInfo.url;
+            img.onload = function() {
+                hideContainer(loadingContainer);
+                showContainer(imageContainer, 'block');
+                if (zoomControls) zoomControls.style.display = 'block';
+                if (dimensions.length > 0) {
+                    renderBubbles();
+                }
+            };
+        }
+    }
+}
+
+// 更新文件类型提示
+function updateFileTypeInfo() {
+    const select = document.getElementById('fileTypeSelect');
+    const infoSpan = document.getElementById('fileTypeInfo');
+    if (select && infoSpan) {
+        const selectedOption = select.options[select.selectedIndex];
+        const fileInfo = fileUrls ? fileUrls[select.value] : null;
+        if (fileInfo) {
+            infoSpan.textContent = '将识别: ' + fileInfo.name;
+        } else {
+            infoSpan.textContent = '将识别: 附件';
+        }
+    }
+}
+
+// 文件类型选择变更
+document.getElementById('fileTypeSelect')?.addEventListener('change', function() {
+    switchPreview(this.value);
+    updateFileTypeInfo();
+});
+
+// 缩放功能
+document.getElementById('btnZoomIn')?.addEventListener('click', function() {
+    zoomLevel = Math.min(zoomLevel + 0.25, 3);
+    applyZoom();
+});
+
+document.getElementById('btnZoomOut')?.addEventListener('click', function() {
+    zoomLevel = Math.max(zoomLevel - 0.25, 0.5);
+    applyZoom();
+});
+
+document.getElementById('btnReset')?.addEventListener('click', function() {
+    zoomLevel = 1;
+    applyZoom();
+});
+
+function applyZoom() {
+    const img = document.getElementById('drawingImage');
+    img.style.transform = `scale(${zoomLevel})`;
+}
+
+// 切换气泡显示
+document.getElementById('btnToggleBubbles')?.addEventListener('click', function() {
+    bubblesVisible = !bubblesVisible;
+    const layer = document.getElementById('bubbleLayer');
+    layer.style.display = bubblesVisible ? 'block' : 'none';
+    this.classList.toggle('active', bubblesVisible);
+});
+
+// OCR识别 - 调用真实API
+document.getElementById('btnOCR').addEventListener('click', async function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-spinner-border spinner-border-sm me-1"></i>识别中...';
+    
+    try {
+        const modelSelect = document.getElementById('ocrModelSelect');
+        const selectedModel = modelSelect ? modelSelect.value : currentModel;
+        const fileTypeSelect = document.getElementById('fileTypeSelect');
+        const attachmentId = fileTypeSelect ? fileTypeSelect.value : null;
+
+        if (!attachmentId) {
+            alert('请先选择要识别的文件');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            return;
+        }
+
+        // 检查文件信息
+        const fileInfo = fileUrls[attachmentId];
+        
+        // 检查是否是CAD文件
+        if (fileInfo && fileInfo.type && fileInfo.type.toUpperCase() === 'CAD') {
+            // CAD文件目前不支持直接OCR识别
+            showAlert('warning', 'CAD文件是矢量格式，无法直接进行OCR识别。请先将其转换为PDF或图片格式后上传，或在"系统管理 > 引擎配置"中安装本地CAD解析引擎。');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            return;
+        }
+        
+        let response;
+        
+        if (fileInfo && fileInfo.is_legacy) {
+            // 旧字段的文件：使用直接传文件URL的方式
+            const partId = '{{ part.id }}';
+            response = await fetch('/api/v1/parts/ocr/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ 
+                    model: selectedModel,
+                    file_url: fileInfo.url,
+                    file_type: fileInfo.type,
+                    file_name: fileInfo.name,  // 传递原始文件名
+                    part_id: partId
+                })
+            });
+        } else {
+            // PartAttachment的文件：使用attachment ID
+            response = await fetch(`/api/v1/parts/attachments/${attachmentId}/ocr/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ 
+                    model: selectedModel
+                })
+            });
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // 处理识别结果
+            if (data.dimensions && Array.isArray(data.dimensions)) {
+                dimensions = data.dimensions.map((dim, index) => ({
+                    id: dim.id,
+                    name: dim.name,
+                    nominal: dim.nominal_value,
+                    upper: dim.upper_tolerance,
+                    lower: dim.lower_tolerance,
+                    unit: dim.unit,
+                    type: dim.dim_type,
+                    critical: dim.is_critical,
+                    // 优先使用识别引擎返回的真实标注位置；缺失时退回网格占位，
+                    // 并标记positionUnknown供前端提示"位置待确认"
+                    position: (dim.position && typeof dim.position.x === 'number' && typeof dim.position.y === 'number')
+                        ? dim.position
+                        : { x: 10 + (index % 5) * 18, y: 10 + Math.floor(index / 5) * 20 },
+                    positionUnknown: !(dim.position && typeof dim.position.x === 'number' && typeof dim.position.y === 'number')
+                }));
+            } else {
+                dimensions = [];
+            }
+            
+            renderDimensionList();
+            renderBubbles();
+            
+            // 刷新OCR识别结果列表
+            refreshExtractionResults();
+            
+            // 显示成功消息
+            showAlert('success', data.message + (data.model_used ? ` (使用模型: ${data.model_used})` : ''));
+        } else {
+            showAlert('danger', '识别失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) {
+        showAlert('danger', '请求失败: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+});
+
+// 显示提示消息
+function showAlert(type, message) {
+    const container = document.createElement('div');
+    container.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    container.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    container.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(container);
+    setTimeout(() => container.remove(), 5000);
+}
+
+// 渲染尺寸列表
+function renderDimensionList() {
+    const tbody = document.getElementById('dimensionList');
+    if (dimensions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">点击"OCR识别"开始识别图纸</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = dimensions.map((dim, index) => `
+        <tr data-id="${dim.id}" class="dimension-row" style="cursor: pointer;">
+            <td><input type="checkbox" class="item-check" data-id="${dim.id}"></td>
+            <td>
+                <span class="badge ${dim.critical ? 'bg-danger' : 'bg-primary'} rounded-circle me-1" 
+                      style="width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center;">
+                    ${index + 1}
+                </span>
+            </td>
+            <td>
+                <span class="fw-bold">${dim.nominal}</span>
+                <small class="text-muted ms-1">${dim.name || ''}</small>
+                ${dim.critical ? '<span class="badge bg-danger ms-1">关键</span>' : ''}
+            </td>
+            <td><small>${dim.lower} / ${dim.upper}</small></td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary btn-edit" data-id="${dim.id}" title="编辑">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-info btn-locate" data-id="${dim.id}" title="定位">
+                    <i class="bi bi-crosshair"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    
+    // 绑定编辑事件
+    document.querySelectorAll('.btn-edit').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const id = this.dataset.id;
+            const dim = dimensions.find(d => d.id === id);
+            if (dim) {
+                showEditModal(dim);
+            }
+        });
+    });
+    
+    // 绑定定位事件
+    document.querySelectorAll('.btn-locate').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const id = this.dataset.id;
+            locateBubble(id);
+        });
+    });
+    
+    // 行点击高亮气泡
+    document.querySelectorAll('.dimension-row').forEach(row => {
+        row.addEventListener('click', function() {
+            const id = this.dataset.id;
+            highlightBubble(id);
+        });
+    });
+}
+
+// 渲染气泡标注
+function renderBubbles() {
+    const layer = document.getElementById('bubbleLayer');
+    const img = document.getElementById('drawingImage');
+    
+    if (!img.clientWidth) return;
+    
+    layer.innerHTML = dimensions.map((dim, index) => {
+        const x = dim.position ? dim.position.x : (5 + (index % 5) * 18);
+        const y = dim.position ? dim.position.y : (5 + Math.floor(index / 5) * 20);
+        const unknown = !!dim.positionUnknown;
+
+        return `
+            <div class="position-absolute bubble-marker"
+                 style="left: ${x}%; top: ${y}%; pointer-events: auto; cursor: pointer; z-index: 10;"
+                 data-id="${dim.id}">
+                <span class="badge ${dim.critical ? 'bg-danger' : 'bg-primary'} rounded-circle shadow"
+                      style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 2px solid white; ${unknown ? 'border-style: dashed; opacity: 0.7;' : ''}">
+                    ${index + 1}
+                </span>
+                <div class="bubble-tooltip position-absolute start-100 ms-2 bg-white rounded shadow p-2"
+                     style="display: none; min-width: 120px; z-index: 20;">
+                    <small class="fw-bold">${dim.name || '尺寸 ' + (index + 1)}</small><br>
+                    <small class="text-primary">${dim.nominal} ${dim.unit || 'mm'}</small><br>
+                    <small class="text-muted">公差: ${dim.lower ?? '无下限'}/${dim.upper ?? '无上限'}</small>
+                    ${unknown ? '<br><small class="text-warning"><i class="bi bi-exclamation-triangle"></i> 位置未识别，仅为占位排列，请人工拖拽至实际标注处</small>' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    // 绑定气泡交互事件
+    document.querySelectorAll('.bubble-marker').forEach(bubble => {
+        // 悬停显示详情
+        bubble.addEventListener('mouseenter', function() {
+            this.querySelector('.bubble-tooltip').style.display = 'block';
+        });
+        bubble.addEventListener('mouseleave', function() {
+            this.querySelector('.bubble-tooltip').style.display = 'none';
+        });
+        
+        // 点击编辑
+        bubble.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const dim = dimensions.find(d => d.id === id);
+            if (dim) {
+                showEditModal(dim);
+            }
+        });
+        
+        // 拖拽定位（可选功能）
+        bubble.addEventListener('mousedown', function(e) {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            
+            const marker = this;
+            const layer = document.getElementById('bubbleLayer');
+            const rect = layer.getBoundingClientRect();
+            
+            function onMouseMove(e) {
+                const x = ((e.clientX - rect.left) / rect.width * 100);
+                const y = ((e.clientY - rect.top) / rect.height * 100);
+                marker.style.left = Math.max(0, Math.min(100, x)) + '%';
+                marker.style.top = Math.max(0, Math.min(100, y)) + '%';
+                
+                // 更新数据
+                const id = marker.dataset.id;
+                const dim = dimensions.find(d => d.id === id);
+                if (dim) {
+                    dim.position = { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
+                    // 人工拖拽确认后，位置不再视为"未知"
+                    dim.positionUnknown = false;
+                }
+            }
+
+            function onMouseUp() {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                // 重新渲染以去除"位置未知"的虚线样式提示
+                renderBubbles();
+            }
+            
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+    });
+}
+
+// 高亮气泡
+function highlightBubble(id) {
+    // 移除所有高亮
+    document.querySelectorAll('.bubble-marker').forEach(b => {
+        b.classList.remove('highlighted');
+        b.querySelector('.badge').style.transform = '';
+    });
+    
+    // 高亮选中的气泡
+    const bubble = document.querySelector(`.bubble-marker[data-id="${id}"]`);
+    if (bubble) {
+        bubble.classList.add('highlighted');
+        bubble.querySelector('.badge').style.transform = 'scale(1.3)';
+        
+        // 滚动到可见区域
+        bubble.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
+// 定位气泡（滚动并高亮）
+function locateBubble(id) {
+    highlightBubble(id);
+    
+    // 高亮对应的行
+    document.querySelectorAll('.dimension-row').forEach(row => {
+        row.classList.remove('table-active');
+        if (row.dataset.id === id) {
+            row.classList.add('table-active');
+        }
+    });
+}
+
+// 显示编辑模态框
+function showEditModal(dim) {
+    document.getElementById('dimId').value = dim.id;
+    document.getElementById('dimName').value = dim.name;
+    document.getElementById('nominalValue').value = dim.nominal;
+    document.getElementById('upperTolerance').value = dim.upper;
+    document.getElementById('lowerTolerance').value = dim.lower;
+    document.getElementById('unit').value = dim.unit || 'mm';
+    document.getElementById('dimType').value = dim.type || 'LINEAR';
+    document.getElementById('isCritical').checked = dim.critical || false;
+    
+    new bootstrap.Modal(document.getElementById('editDimensionModal')).show();
+}
+
+// 保存编辑
+document.getElementById('btnSaveDimension').addEventListener('click', function() {
+    const id = document.getElementById('dimId').value;
+    const dim = dimensions.find(d => d.id === id);
+    if (dim) {
+        dim.name = document.getElementById('dimName').value;
+        dim.nominal = parseFloat(document.getElementById('nominalValue').value);
+        dim.upper = parseFloat(document.getElementById('upperTolerance').value);
+        dim.lower = parseFloat(document.getElementById('lowerTolerance').value);
+        dim.unit = document.getElementById('unit').value;
+        dim.type = document.getElementById('dimType').value;
+        dim.critical = document.getElementById('isCritical').checked;
+        
+        renderDimensionList();
+        renderBubbles();
+    }
+    bootstrap.Modal.getInstance(document.getElementById('editDimensionModal')).hide();
+});
+
+// 添加新项
+document.getElementById('btnAddItem').addEventListener('click', function() {
+    const newDim = {
+        id: 'DIM' + String(dimensions.length + 1).padStart(3, '0'),
+        name: '新尺寸',
+        nominal: 0,
+        upper: 0,
+        lower: 0,
+        unit: 'mm',
+        type: 'LINEAR',
+        position: {
+            x: 50,
+            y: 50 + dimensions.length * 5
+        }
+    };
+    dimensions.push(newDim);
+    renderDimensionList();
+    renderBubbles();
+    showEditModal(newDim);
+});
+
+// 删除选中项
+document.getElementById('btnDeleteItem').addEventListener('click', function() {
+    const checkboxes = document.querySelectorAll('.item-check:checked');
+    checkboxes.forEach(cb => {
+        const id = cb.dataset.id;
+        dimensions = dimensions.filter(d => d.id !== id);
+    });
+    renderDimensionList();
+    renderBubbles();
+});
+
+// 全选
+document.getElementById('selectAll').addEventListener('change', function() {
+    document.querySelectorAll('.item-check').forEach(cb => {
+        cb.checked = this.checked;
+    });
+});
+
+// 生成检测表
+document.getElementById('btnGenerateTable').addEventListener('click', async function() {
+    if (dimensions.length === 0) {
+        showAlert('warning', '请先进行OCR识别');
+        return;
+    }
+    
+    const btn = this;
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-spinner-border spinner-border-sm me-1"></i>生成中...';
+    
+    try {
+        const response = await fetch('/api/v1/parts/parts/{{ part.pk }}/create_inspection_plan/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                plan_name: '{{ part.part_number }} 检验计划',
+                standard: 'AS9102'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            showAlert('success', data.message);
+            
+            // 询问是否跳转到检验计划详情
+            if (confirm(data.message + '\n\n是否立即查看检验计划?')) {
+                window.location.href = data.redirect_url;
+            }
+        } else {
+            showAlert('danger', '创建失败: ' + (data.error || '未知错误'));
+        }
+    } catch (e) {
+        showAlert('danger', '请求失败: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+});
+
+// 导出识别结果
+document.getElementById('btnExport').addEventListener('click', function() {
+    if (dimensions.length === 0) {
+        showAlert('warning', '请先进行OCR识别');
+        return;
+    }
+    
+    // 生成CSV内容
+    const headers = ['序号', '尺寸编号', '尺寸名称', '理论值', '上公差', '下公差', '单位', '类型', '关键特性'];
+    const rows = dimensions.map((dim, index) => [
+        index + 1,
+        dim.id,
+        dim.name,
+        dim.nominal,
+        dim.upper,
+        dim.lower,
+        dim.unit,
+        dim.type,
+        dim.critical ? '是' : '否'
+    ]);
+    
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+    
+    // 创建下载
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `图纸识别结果_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+    
+    showAlert('success', '识别结果已导出');
+});
+
+// 保存结果到服务器，并视为人工复核确认（必须先核对完所有尺寸/公差/气泡位置后再点击）
+document.getElementById('btnSaveResults').addEventListener('click', async function() {
+    if (dimensions.length === 0) {
+        showAlert('warning', '请先进行OCR识别');
+        return;
+    }
+    if (!confirm('请确认已逐项核对每个尺寸的数值、公差和气泡位置是否准确无误。\n\n确认无误后保存，该批识别结果才能用于生成正式检验计划。')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/v1/parts/extractions/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                part: '{{ part.pk }}',
+                extraction_data: {
+                    dimensions: dimensions,
+                    source_file: '编辑后保存'
+                },
+                status: 'COMPLETED'
+            })
+        });
+
+        if (response.ok) {
+            const saved = await response.json();
+            // 紧接着确认复核，作为人工核实的正式记录（写入复核人/复核时间）
+            const reviewResp = await fetch(`/api/v1/parts/extractions/${saved.id}/confirm_review/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCsrfToken() }
+            });
+            if (reviewResp.ok) {
+                showAlert('success', '识别结果已保存并确认复核，可用于生成检验计划');
+            } else {
+                showAlert('warning', '识别结果已保存，但复核确认失败，生成检验计划前请重试确认');
+            }
+            // 刷新OCR识别结果列表，标记为"编辑后保存"
+            refreshExtractionResults('编辑后保存');
+        } else {
+            showAlert('danger', '保存失败');
+        }
+    } catch (e) {
+        showAlert('danger', '保存失败: ' + e.message);
+    }
+});
+
+// ==================== OCR识别结果刷新功能 ====================
+
+// 刷新OCR识别结果列表
+async function refreshExtractionResults(sourceFile = null) {
+    const cardBody = document.getElementById('extractionResultsBody');
+    if (!cardBody) return;
+    
+    try {
+        // 获取该零件的所有识别结果
+        const response = await fetch(`/api/v1/parts/extractions/?part={{ part.pk }}`);
+        const result = await response.json();
+        
+        let extractions = result.results || result || [];
+        
+        // 如果指定了来源文件，标记该记录的source_file
+        if (sourceFile) {
+            // 更新本地数据，将最新的记录标记为编辑后保存
+            if (extractions.length > 0) {
+                extractions = extractions.map((ext, idx) => {
+                    if (idx === 0) {
+                        return {
+                            ...ext,
+                            extraction_data: {
+                                ...ext.extraction_data,
+                                source_file: sourceFile
+                            }
+                        };
+                    }
+                    return ext;
+                });
+            }
+        }
+        
+        if (extractions && extractions.length > 0) {
+            let html = `
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light sticky-top">
+                        <tr>
+                            <th>识别时间</th>
+                            <th>来源文件</th>
+                            <th>状态</th>
+                            <th>尺寸数量</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            extractions.forEach(ext => {
+                const sourceFileName = ext.extraction_data?.source_file || '未知';
+                const statusBadge = ext.status === 'COMPLETED' ? 'success' : (ext.status === 'PROCESSING' ? 'warning' : 'danger');
+                const dimensionsCount = ext.dimensions?.count || (ext.extraction_data?.dimensions?.length || 0);
+                
+                html += `
+                    <tr>
+                        <td>${new Date(ext.created_at).toLocaleString('zh-CN')}</td>
+                        <td><span class="badge bg-info">${sourceFileName}</span></td>
+                        <td><span class="badge bg-${statusBadge}">${ext.status}</span></td>
+                        <td>${dimensionsCount}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#extractionModal" data-id="${ext.id}" title="查看详情">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="createPlanFromExtraction('${ext.id}')" title="创建检验计划">
+                                    <i class="bi bi-clipboard-plus"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" onclick="deleteExtraction('${ext.id}')" title="删除">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            cardBody.innerHTML = html;
+        } else {
+            cardBody.innerHTML = '<div class="text-center text-muted py-3"><small>暂无识别记录</small></div>';
+        }
+        
+        // 重新绑定弹窗事件
+        initExtractionModalEvents();
+        
+    } catch (e) {
+        console.error('刷新OCR识别结果失败:', e);
+    }
+}
+
+// 初始化OCR详情弹窗事件
+function initExtractionModalEvents() {
+    document.querySelectorAll('[data-bs-target="#extractionModal"]').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const extractionId = this.dataset.id;
+            try {
+                const response = await fetch(`/api/v1/parts/extractions/${extractionId}/`);
+                const data = await response.json();
+                
+                const modalBody = document.getElementById('extractionModalBody');
+                
+                let dimensions = data.extraction_dimensions || [];
+                if (!dimensions && data.extraction_data && data.extraction_data.dimensions) {
+                    dimensions = data.extraction_data.dimensions;
+                }
+                
+                if (dimensions && dimensions.length > 0) {
+                    let html = `
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>序号</th>
+                                        <th>尺寸名称</th>
+                                        <th>理论值</th>
+                                        <th>上公差</th>
+                                        <th>下公差</th>
+                                        <th>单位</th>
+                                        <th>类型</th>
+                                        <th>关键</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    dimensions.forEach((dim, index) => {
+                        const nominalValue = dim.nominal_value !== undefined ? dim.nominal_value : (dim.nominal || '-');
+                        const upperTol = dim.upper_tolerance !== undefined ? dim.upper_tolerance : (dim.upper || 0);
+                        const lowerTol = dim.lower_tolerance !== undefined ? dim.lower_tolerance : (dim.lower || 0);
+                        const dimType = dim.dim_type || dim.type || 'LINEAR';
+                        
+                        html += `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${dim.name || '-'}</td>
+                                <td>${nominalValue}</td>
+                                <td>${upperTol}</td>
+                                <td>${lowerTol}</td>
+                                <td>${dim.unit || 'mm'}</td>
+                                <td>${dimType}</td>
+                                <td>${dim.is_critical ? '<span class="badge bg-danger">是</span>' : '否'}</td>
+                            </tr>
+                        `;
+                    });
+                    html += '</tbody></table></div>';
+                    modalBody.innerHTML = html;
+                } else {
+                    modalBody.innerHTML = '<p class="text-muted text-center">暂无识别数据</p>';
+                }
+            } catch (e) {
+                document.getElementById('extractionModalBody').innerHTML = 
+                    '<p class="text-danger text-center">加载失败: ' + e.message + '</p>';
+            }
+        });
+    });
+}
+
+// ==================== 模板管理功能 ====================
+
+// 获取CSRF Token
+function getCsrfToken() {
+    // 优先从cookie获取
+    const cookieValue = document.cookie.split('; ')
+        .find(row => row.startsWith('csrftoken='))
+        ?.split('=')[1];
+    if (cookieValue) return cookieValue;
+    
+    // 其次从表单获取
+    const formToken = document.querySelector('[name="csrfmiddlewaretoken"]');
+    if (formToken) return formToken.value;
+    
+    return '';
+}
+
+// 保存当前识别结果为模板
+async function saveAsTemplate() {
+    if (dimensions.length === 0) {
+        showAlert('warning', '没有可保存的识别结果，请先进行OCR识别');
+        return;
+    }
+    
+    const name = prompt('请输入模板名称：');
+    if (!name || !name.trim()) {
+        return;
+    }
+    
+    const description = prompt('请输入模板描述（可选）：') || '';
+    
+    // 准备模板数据（含气泡位置，以便加载时还原）
+    const templateData = dimensions.map(dim => ({
+        id: dim.id,
+        name: dim.name,
+        nominal: dim.nominal,
+        upper: dim.upper,
+        lower: dim.lower,
+        unit: dim.unit,
+        type: dim.type,
+        critical: dim.critical,
+        position: dim.positionUnknown ? null : dim.position
+    }));
+    
+    try {
+        const response = await fetch('/api/v1/parts/templates/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                name: name.trim(),
+                description: description,
+                template_type: 'CUSTOM',
+                is_public: true,
+                dimensions_data: templateData
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showAlert('success', `模板 "${name}" 保存成功！包含 ${templateData.length} 个尺寸`);
+            refreshTemplates();
+        } else {
+            showAlert('danger', '保存失败: ' + JSON.stringify(data));
+        }
+    } catch (e) {
+        showAlert('danger', '保存失败: ' + e.message);
+    }
+}
+
+// 加载模板列表
+async function refreshTemplates() {
+    const container = document.getElementById('templatesList');
+    container.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm"></div></div>';
+    
+    try {
+        const response = await fetch('/api/v1/parts/templates/');
+        const data = await response.json();
+        
+        if (data.results && data.results.length > 0) {
+            container.innerHTML = data.results.map(t => `
+                <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <div>
+                        <strong class="small">${t.name}</strong>
+                        <span class="badge bg-secondary ms-1">${t.dimensions_count}项</span>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary btn-sm" onclick="loadTemplate('${t.id}')" title="加载模板">
+                            <i class="bi bi-box-arrow-in-down"></i>
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteTemplate('${t.id}')" title="删除模板">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<p class="text-muted text-center small mb-0">暂无保存的模板</p>';
+        }
+    } catch (e) {
+        container.innerHTML = '<p class="text-danger text-center small mb-0">加载失败</p>';
+    }
+}
+
+// 加载模板
+async function loadTemplate(templateId) {
+    try {
+        const response = await fetch(`/api/v1/parts/templates/${templateId}/`);
+        const template = await response.json();
+        
+        if (template.dimensions_data && template.dimensions_data.length > 0) {
+            // 加载模板数据到dimensions，优先使用保存的气泡位置
+            dimensions = template.dimensions_data.map((dim, index) => {
+                const hasSavedPos = dim.position &&
+                    typeof dim.position.x === 'number' &&
+                    typeof dim.position.y === 'number';
+                return {
+                    id: dim.id || `DIM${index + 1}`,
+                    name: dim.name,
+                    nominal: dim.nominal,
+                    upper: dim.upper || 0,
+                    lower: dim.lower || 0,
+                    unit: dim.unit || 'mm',
+                    type: dim.type || 'LINEAR',
+                    critical: dim.critical || false,
+                    position: hasSavedPos
+                        ? dim.position
+                        : { x: 10 + (index % 5) * 18, y: 10 + Math.floor(index / 5) * 20 },
+                    positionUnknown: !hasSavedPos
+                };
+            });
+            
+            renderDimensionList();
+            renderBubbles();
+            
+            showAlert('success', `已加载模板 "${template.name}"，包含 ${dimensions.length} 个尺寸`);
+        } else {
+            showAlert('warning', '模板没有尺寸数据');
+        }
+    } catch (e) {
+        showAlert('danger', '加载模板失败: ' + e.message);
+    }
+}
+
+// 删除模板
+async function deleteTemplate(templateId) {
+    if (!confirm('确定要删除此模板吗？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/v1/parts/templates/${templateId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+        
+        if (response.ok) {
+            showAlert('success', '模板已删除');
+            refreshTemplates();
+        } else {
+            showAlert('danger', '删除失败');
+        }
+    } catch (e) {
+        showAlert('danger', '删除失败: ' + e.message);
+    }
+}
+
+// 处理OCR详情弹窗
+document.querySelectorAll('[data-bs-target="#extractionModal"]').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const extractionId = this.dataset.id;
+        try {
+            const response = await fetch(`/api/v1/parts/extractions/${extractionId}/`);
+            const data = await response.json();
+            
+            // 填充Modal内容
+            const modalBody = document.getElementById('extractionModalBody');
+            
+            // 优先从extraction_dimensions获取
+            let dimensions = data.extraction_dimensions || [];
+            if (!dimensions && data.extraction_data && data.extraction_data.dimensions) {
+                dimensions = data.extraction_data.dimensions;
+            }
+            
+            if (dimensions && dimensions.length > 0) {
+                let html = `
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>序号</th>
+                                    <th>尺寸名称</th>
+                                    <th>理论值</th>
+                                    <th>上公差</th>
+                                    <th>下公差</th>
+                                    <th>单位</th>
+                                    <th>类型</th>
+                                    <th>关键</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                dimensions.forEach((dim, index) => {
+                    const nominalValue = dim.nominal_value !== undefined ? dim.nominal_value : (dim.nominal || '-');
+                    const upperTol = dim.upper_tolerance !== undefined ? dim.upper_tolerance : (dim.upper || 0);
+                    const lowerTol = dim.lower_tolerance !== undefined ? dim.lower_tolerance : (dim.lower || 0);
+                    const dimType = dim.dim_type || dim.type || 'LINEAR';
+                    
+                    html += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${dim.name || '-'}</td>
+                            <td>${nominalValue}</td>
+                            <td>${upperTol}</td>
+                            <td>${lowerTol}</td>
+                            <td>${dim.unit || 'mm'}</td>
+                            <td>${dimType}</td>
+                            <td>${dim.is_critical ? '<span class="badge bg-danger">是</span>' : '否'}</td>
+                        </tr>
+                    `;
+                });
+                html += '</tbody></table></div>';
+                modalBody.innerHTML = html;
+            } else {
+                modalBody.innerHTML = '<p class="text-muted text-center">暂无识别数据</p>';
+            }
+        } catch (e) {
+            document.getElementById('extractionModalBody').innerHTML = 
+                '<p class="text-danger text-center">加载失败: ' + e.message + '</p>';
+        }
+    });
+});
+
+// 从识别结果创建检验计划
+async function createPlanFromExtraction(extractionId) {
+    if (!confirm('确定要从该识别结果创建检验计划吗？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/v1/parts/parts/{{ part.pk }}/create_inspection_plan/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({
+                plan_name: '{{ part.part_number }} 检验计划',
+                standard: 'AS9102'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            alert(data.message);
+            window.location.href = data.redirect_url;
+        } else {
+            alert('创建失败: ' + (data.error || '未知错误'));
+        }
+    } catch (error) {
+        alert('创建失败: ' + error.message);
+    }
+}
+
+// 删除识别结果
+async function deleteExtraction(extractionId) {
+    if (!confirm('确定要删除此识别结果吗？此操作不可恢复。')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/v1/parts/extractions/${extractionId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+        
+        if (response.ok) {
+            alert('识别结果已删除');
+            location.reload();
+        } else {
+            alert('删除失败');
+        }
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
+// 显示模板模态框
+function showTemplatesModal() {
+    refreshTemplates();
+    // 可以改为显示一个模态框，这里简单刷新列表
+}
+
+// 页面加载时刷新模板列表和初始化OCR详情弹窗
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(refreshTemplates, 500);
+    
+    // 初始化OCR详情弹窗事件监听
+    document.querySelectorAll('[data-bs-target="#extractionModal"]').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const extractionId = this.dataset.id;
+            try {
+                const response = await fetch(`/api/v1/parts/extractions/${extractionId}/`);
+                const data = await response.json();
+                
+                // 填充Modal内容
+                const modalBody = document.getElementById('extractionModalBody');
+                
+                // 优先从extraction_dimensions获取
+                let dimensions = data.extraction_dimensions || [];
+                if (!dimensions && data.extraction_data && data.extraction_data.dimensions) {
+                    dimensions = data.extraction_data.dimensions;
+                }
+                
+                if (dimensions && dimensions.length > 0) {
+                    let html = `
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>序号</th>
+                                        <th>尺寸名称</th>
+                                        <th>理论值</th>
+                                        <th>上公差</th>
+                                        <th>下公差</th>
+                                        <th>单位</th>
+                                        <th>类型</th>
+                                        <th>关键</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    dimensions.forEach((dim, index) => {
+                        const nominalValue = dim.nominal_value !== undefined ? dim.nominal_value : (dim.nominal || '-');
+                        const upperTol = dim.upper_tolerance !== undefined ? dim.upper_tolerance : (dim.upper || 0);
+                        const lowerTol = dim.lower_tolerance !== undefined ? dim.lower_tolerance : (dim.lower || 0);
+                        const dimType = dim.dim_type || dim.type || 'LINEAR';
+                        
+                        html += `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${dim.name || '-'}</td>
+                                <td>${nominalValue}</td>
+                                <td>${upperTol}</td>
+                                <td>${lowerTol}</td>
+                                <td>${dim.unit || 'mm'}</td>
+                                <td>${dimType}</td>
+                                <td>${dim.is_critical ? '<span class="badge bg-danger">是</span>' : '否'}</td>
+                            </tr>
+                        `;
+                    });
+                    html += '</tbody></table></div>';
+                    modalBody.innerHTML = html;
+                } else {
+                    modalBody.innerHTML = '<p class="text-muted text-center">暂无识别数据</p>';
+                }
+            } catch (e) {
+                document.getElementById('extractionModalBody').innerHTML = 
+                    '<p class="text-danger text-center">加载失败: ' + e.message + '</p>';
+            }
+        });
+    });
+});
+</script>
+
+<style>
+.bubble-marker {
+    transition: transform 0.2s ease;
+}
+.bubble-marker:hover {
+    z-index: 15 !important;
+}
+.bubble-marker.highlighted .badge {
+    background-color: #ec4899 !important;
+    box-shadow: 0 0 10px rgba(236, 72, 153, 0.8);
+    animation: pulse 1s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 5px rgba(236, 72, 153, 0.5); }
+    50% { box-shadow: 0 0 15px rgba(236, 72, 153, 0.9); }
+}
+.dimension-row:hover {
+    background-color: #f8f9fa;
+}
+.dimension-row.table-active {
+    background-color: #cfe2ff !important;
+}
+</style>
+{% endblock %}

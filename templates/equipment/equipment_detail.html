@@ -1,0 +1,266 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ equipment.equipment_name }} - 设备详情 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'equipment_list' %}">设备集成</a></li>
+<li class="breadcrumb-item active">{{ equipment.equipment_name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="bi bi-hdd me-2"></i>{{ equipment.equipment_name }}
+                </h4>
+                <span class="badge bg-{% if equipment.status == 'ACTIVE' %}success{% elif equipment.status == 'IDLE' %}warning{% else %}secondary{% endif %}">
+                    {{ equipment.get_status_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <dl>
+                            <dt>设备编号</dt>
+                            <dd>{{ equipment.equipment_id }}</dd>
+                            
+                            <dt>设备类型</dt>
+                            <dd>{{ equipment.get_equipment_type_display }}</dd>
+                            
+                            <dt>制造商</dt>
+                            <dd>{{ equipment.manufacturer|default:"-" }}</dd>
+                            
+                            <dt>型号</dt>
+                            <dd>{{ equipment.model|default:"-" }}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <dl>
+                            <dt>序列号</dt>
+                            <dd>{{ equipment.serial_number|default:"-" }}</dd>
+                            
+                            <dt>IP地址</dt>
+                            <dd>{{ equipment.ip_address|default:"-" }}</dd>
+                            
+                            <dt>最后校准日期</dt>
+                            <dd>{{ equipment.last_calibration|date:"Y-m-d"|default:"-" }}</dd>
+                            
+                            <dt>下次校准日期</dt>
+                            <dd>{{ equipment.next_calibration|date:"Y-m-d"|default:"-" }}</dd>
+                        </dl>
+                    </div>
+                </div>
+                
+                {% if equipment.description %}
+                <hr>
+                <h5>描述</h5>
+                <p>{{ equipment.description }}</p>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div class="btn-group">
+                    <button class="btn btn-success" onclick="connectEquipment('{{ equipment.id }}')">
+                        <i class="bi bi-plug me-1"></i>连接
+                    </button>
+                    <button class="btn btn-danger" onclick="disconnectEquipment('{{ equipment.id }}')">
+                        <i class="bi bi-plug-fill me-1"></i>断开
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 连接历史 -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>连接历史</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>连接时间</th>
+                                <th>断开时间</th>
+                                <th>状态</th>
+                                <th>用户</th>
+                            </tr>
+                        </thead>
+                        <tbody id="connectionHistory">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">加载中...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- 快速操作 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>快速操作</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#importDataModal">
+                        <i class="bi bi-upload me-2"></i>导入测量数据
+                    </button>
+                    <a href="{% url 'batch_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-list me-2"></i>查看测量批次
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 设备信息 -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>设备信息</h5>
+            </div>
+            <div class="card-body">
+                <small class="text-muted">
+                    <p><strong>创建时间:</strong> {{ equipment.created_at|date:"Y-m-d H:i" }}</p>
+                    <p><strong>更新时间:</strong> {{ equipment.updated_at|date:"Y-m-d H:i" }}</p>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 导入数据模态框 -->
+<div class="modal fade" id="importDataModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">导入测量数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="importForm">
+                    <input type="hidden" name="equipment_id" value="{{ equipment.id }}">
+                    <div class="mb-3">
+                        <label class="form-label">数据文件</label>
+                        <input type="file" class="form-control" name="data_file" accept=".csv,.xlsx,.txt">
+                        <div class="form-text">支持 CSV、Excel、TXT 格式</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">文件名称</label>
+                        <input type="text" class="form-control" name="file_name" placeholder="输入文件名称">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="uploadData()">上传</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrftoken = getCookie('csrftoken');
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 加载连接历史
+document.addEventListener('DOMContentLoaded', function() {
+    fetch(`/api/v1/equipment/{{ equipment.id }}/connection_history/`)
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('connectionHistory');
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">暂无连接记录</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.map(conn => `
+                <tr>
+                    <td>${conn.connected_at || '-'}</td>
+                    <td>${conn.disconnected_at || '-'}</td>
+                    <td><span class="badge bg-${conn.status === 'CONNECTED' ? 'success' : 'secondary'}">${conn.status}</span></td>
+                    <td>${conn.user || '-'}</td>
+                </tr>
+            `).join('');
+        });
+});
+
+// 连接设备
+function connectEquipment(equipmentId) {
+    fetch(`/api/v1/equipment/${equipmentId}/connect/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('设备连接成功！');
+            location.reload();
+        } else {
+            alert('连接失败: ' + (data.error || '未知错误'));
+        }
+    });
+}
+
+// 断开设备
+function disconnectEquipment(equipmentId) {
+    fetch(`/api/v1/equipment/${equipmentId}/disconnect/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('设备已断开！');
+            location.reload();
+        } else {
+            alert('断开失败: ' + (data.error || '未知错误'));
+        }
+    });
+}
+
+// 上传数据
+function uploadData() {
+    const formData = new FormData(document.getElementById('importForm'));
+    
+    fetch('/api/v1/equipment/imports/upload/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(`成功导入 ${data.imported_records} 条数据！`);
+            bootstrap.Modal.getInstance(document.getElementById('importDataModal')).hide();
+        } else {
+            alert('导入失败: ' + (data.error || '未知错误'));
+        }
+    });
+}
+</script>
+{% endblock %}

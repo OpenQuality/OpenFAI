@@ -1,0 +1,748 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}零件分析 - {{ part.part_number }}{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="container-fluid py-4">
+    <div class="row mb-3">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'part_list' %}">零件管理</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'part_detail' part.id %}">{{ part.part_number }}</a></li>
+                    <li class="breadcrumb-item active">深度分析</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-gear-fill me-2"></i>
+                        零件信息
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <p><strong>零件编号：</strong>{{ part.part_number }}</p>
+                            <p><strong>零件名称：</strong>{{ part.part_name }}</p>
+                            <p><strong>版本：</strong>{{ part.revision }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p><strong>材料：</strong>{{ part.material }}</p>
+                            <p><strong>客户：</strong>{{ part.customer }}</p>
+                            <p><strong>状态：</strong><span class="badge bg-{% if part.status == 'ACTIVE' %}success{% elif part.status == 'PENDING' %}warning{% else %}secondary{% endif %}">{{ part.get_status_display }}</span></p>
+                        </div>
+                        <div class="col-md-4">
+                            <p><strong>创建时间：</strong>{{ part.created_at|date:"Y-m-d H:i" }}</p>
+                            <p><strong>创建人：</strong>{{ part.created_by.username }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 分析操作区 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-magic me-2"></i>
+                        分析操作
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <button class="btn btn-primary w-100" id="btn-full-analysis">
+                                <i class="bi bi-rocket-takeoff me-2"></i>
+                                完整分析
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <button class="btn btn-info w-100" id="btn-control-requirements">
+                                <i class="bi bi-clipboard-check me-2"></i>
+                                控制要求分析
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <button class="btn btn-warning w-100" id="btn-risk-points">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                风险点识别
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <div class="dropdown w-100">
+                                <button class="btn btn-success dropdown-toggle w-100" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown">
+                                    <i class="bi bi-file-earmark-text me-2"></i>
+                                    生成文档
+                                </button>
+                                <ul class="dropdown-menu w-100">
+                                    <li><a class="dropdown-item" href="#" id="btn-generate-sop">标准操作程序 (SOP)</a></li>
+                                    <li><a class="dropdown-item" href="#" id="btn-generate-work-instruction">作业指导书</a></li>
+                                    <li><a class="dropdown-item" href="#" id="btn-generate-inspection-guide">检验指导书</a></li>
+                                    <li><a class="dropdown-item" href="#" id="btn-generate-internal-guide">内部建议指导书</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3D模型解析区 -->
+    {% if part.model_3d_file %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-box me-2"></i>
+                        3D模型解析
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>文件：</strong>{{ part.model_3d_file.name }}</p>
+                            <p><strong>格式：</strong>{{ part.model_3d_file_type }}</p>
+                            <button class="btn btn-primary" id="btn-analyze-3d">
+                                <i class="bi bi-gear-fill me-2"></i>
+                                解析3D模型
+                            </button>
+                        </div>
+                        <div class="col-md-6" id="model-3d-result">
+                            <!-- 3D解析结果显示区 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 分析结果区 -->
+    <div class="row">
+        <!-- 控制要求 -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clipboard-check me-2"></i>
+                        控制要求
+                        <span class="badge bg-light text-dark ms-2" id="cr-count">0</span>
+                    </h5>
+                </div>
+                <div class="card-body" id="control-requirements-list">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fa-3x mb-3"></i>
+                        <p>暂无控制要求数据</p>
+                        <p>点击"控制要求分析"按钮开始分析</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 关键风险点 -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        关键风险点
+                        <span class="badge bg-dark ms-2" id="rp-count">0</span>
+                    </h5>
+                </div>
+                <div class="card-body" id="risk-points-list">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-shield-exclamation fa-3x mb-3"></i>
+                        <p>暂无风险点数据</p>
+                        <p>点击"风险点识别"按钮开始分析</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SOP文档 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-text me-2"></i>
+                        SOP文档
+                        <span class="badge bg-light text-dark ms-2" id="sop-count">0</span>
+                    </h5>
+                </div>
+                <div class="card-body" id="sop-documents-list">
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-file-earmark-richtext fa-3x mb-3"></i>
+                        <p>暂无SOP文档</p>
+                        <p>点击"生成文档"按钮创建文档</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 进度模态框 -->
+    <div class="modal fade" id="progressModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="progressTitle">分析中...</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="progress mb-3">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                    </div>
+                    <p class="text-center" id="progressMessage">正在分析图纸，请稍候...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 详情模态框 -->
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="detailTitle">详情</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="detailContent">
+                    <!-- 详情内容 -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.card-header h5 {
+    margin-bottom: 0;
+}
+.cr-item, .rp-item {
+    border-left: 4px solid;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+.cr-item.high { border-left-color: #dc3545; }
+.cr-item.medium { border-left-color: #ffc107; }
+.cr-item.low { border-left-color: #28a745; }
+.rp-item.CRITICAL { border-left-color: #dc3545; background-color: #fff5f5; }
+.rp-item.MAJOR { border-left-color: #ffc107; background-color: #fffef5; }
+.rp-item.MINOR { border-left-color: #28a745; background-color: #f5fff5; }
+.badge-key { background-color: #dc3545; }
+.badge-safety { background-color: #6f42c1; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const partId = '{{ part.id }}';
+const baseUrl = '/api/v1/parts/parts';
+
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
+}
+
+function apiFetch(url, options = {}) {
+    const opts = Object.assign({ headers: {} }, options);
+    if (opts.method && opts.method !== 'GET') {
+        opts.headers['X-CSRFToken'] = getCookie('csrftoken');
+    }
+    return fetch(url, opts).then(async resp => {
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+            const err = new Error(data.error || data.detail || '请求失败');
+            err.data = data;
+            throw err;
+        }
+        return data;
+    });
+}
+
+// 加载已有数据
+document.addEventListener('DOMContentLoaded', function() {
+    loadControlRequirements();
+    loadRiskPoints();
+    loadSOPDocuments();
+    loadModel3DAnalysis();
+
+    document.getElementById('btn-full-analysis')?.addEventListener('click', onFullAnalysis);
+    document.getElementById('btn-control-requirements')?.addEventListener('click', onControlRequirementsAnalysis);
+    document.getElementById('btn-risk-points')?.addEventListener('click', onRiskPointsAnalysis);
+    document.getElementById('btn-generate-sop')?.addEventListener('click', e => { e.preventDefault(); generateDocument('SOP'); });
+    document.getElementById('btn-generate-work-instruction')?.addEventListener('click', e => { e.preventDefault(); generateDocument('WORK_INSTRUCTION'); });
+    document.getElementById('btn-generate-inspection-guide')?.addEventListener('click', e => { e.preventDefault(); generateDocument('INSPECTION_GUIDE'); });
+    document.getElementById('btn-generate-internal-guide')?.addEventListener('click', e => { e.preventDefault(); generateDocument('INTERNAL_GUIDE'); });
+    document.getElementById('btn-analyze-3d')?.addEventListener('click', onAnalyze3D);
+});
+
+// 完整分析
+function onFullAnalysis() {
+    if (!confirm('完整分析将执行：尺寸识别 + 控制要求分析 + 风险点识别 + SOP生成。\n\n这可能需要几分钟时间，是否继续？')) {
+        return;
+    }
+
+    showProgress('完整分析', '正在执行完整分析，请稍候...');
+
+    apiFetch(`${baseUrl}/${partId}/full_analysis/`, { method: 'POST' })
+        .then(response => {
+            hideProgress();
+            showSuccess(`分析完成！识别到：${response.summary.dimensions_count}个尺寸，${response.summary.control_requirements_count}个控制要求，${response.summary.risk_points_count}个风险点`);
+            loadControlRequirements();
+            loadRiskPoints();
+            loadSOPDocuments();
+        })
+        .catch(err => {
+            hideProgress();
+            showError(err.message);
+        });
+}
+
+// 控制要求分析
+function onControlRequirementsAnalysis() {
+    showProgress('控制要求分析', '正在分析控制要求，请稍候...');
+
+    apiFetch(`${baseUrl}/${partId}/analyze_control_requirements/`, { method: 'POST' })
+        .then(response => {
+            hideProgress();
+            showSuccess(response.message);
+            loadControlRequirements();
+        })
+        .catch(err => {
+            hideProgress();
+            showError(err.message);
+        });
+}
+
+// 风险点识别
+function onRiskPointsAnalysis() {
+    showProgress('风险点识别', '正在识别关键风险点，请稍候...');
+
+    apiFetch(`${baseUrl}/${partId}/analyze_risk_points/`, { method: 'POST' })
+        .then(response => {
+            hideProgress();
+            showSuccess(response.message);
+            loadRiskPoints();
+        })
+        .catch(err => {
+            hideProgress();
+            showError(err.message);
+        });
+}
+
+function generateDocument(docType) {
+    const docTypeNames = {
+        'SOP': '标准操作程序',
+        'WORK_INSTRUCTION': '作业指导书',
+        'INSPECTION_GUIDE': '检验指导书',
+        'INTERNAL_GUIDE': '内部建议指导书'
+    };
+
+    showProgress('生成文档', `正在生成${docTypeNames[docType]}，请稍候...`);
+
+    const form = new FormData();
+    form.append('document_type', docType);
+
+    apiFetch(`${baseUrl}/${partId}/generate_sop/`, { method: 'POST', body: form })
+        .then(response => {
+            hideProgress();
+            showSuccess(response.message);
+            loadSOPDocuments();
+        })
+        .catch(err => {
+            hideProgress();
+            showError(err.message);
+        });
+}
+
+// 3D模型解析
+function onAnalyze3D() {
+    showProgress('3D模型解析', '正在解析3D模型，请稍候...');
+
+    apiFetch(`${baseUrl}/${partId}/analyze_model_3d/`, { method: 'POST' })
+        .then(response => {
+            hideProgress();
+            showSuccess(response.message);
+            displayModel3DResult(response);
+        })
+        .catch(err => {
+            hideProgress();
+            showError(err.message);
+        });
+}
+
+// 加载控制要求
+function loadControlRequirements() {
+    apiFetch(`/api/v1/parts/control-requirements/?part=${partId}`)
+        .then(response => displayControlRequirements(response.results || response));
+}
+
+// 加载风险点
+function loadRiskPoints() {
+    apiFetch(`/api/v1/parts/risk-points/?part=${partId}`)
+        .then(response => displayRiskPoints(response.results || response));
+}
+
+// 加载SOP文档
+function loadSOPDocuments() {
+    apiFetch(`/api/v1/parts/sop-documents/?part=${partId}`)
+        .then(response => displaySOPDocuments(response.results || response));
+}
+
+// 加载3D解析结果
+function loadModel3DAnalysis() {
+    apiFetch(`/api/v1/parts/model-3d-analyses/?part=${partId}`)
+        .then(response => {
+            if (response.results && response.results.length > 0) {
+                displayModel3DResult(response.results[0]);
+            }
+        });
+}
+
+// 显示控制要求
+function displayControlRequirements(data) {
+    const container = document.getElementById('control-requirements-list');
+    document.getElementById('cr-count').textContent = data.length;
+
+    if (data.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                <p class="mt-3">暂无控制要求数据</p>
+                <p>点击"控制要求分析"按钮开始分析</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    data.forEach(cr => {
+        html += `
+            <div class="cr-item ${cr.risk_level.toLowerCase()}" onclick="showCRDetail('${cr.id}')">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>${cr.requirement_id}</strong> - ${cr.requirement_name}
+                        <span class="badge bg-${getRiskBadge(cr.risk_level)} ms-2">${cr.risk_level_display}</span>
+                        ${cr.is_key_characteristic ? '<span class="badge badge-key ms-1">关键特性</span>' : ''}
+                        ${cr.is_safety_critical ? '<span class="badge badge-safety ms-1">安全关键</span>' : ''}
+                    </div>
+                    <small class="text-muted">${cr.control_type_display}</small>
+                </div>
+                <p class="mb-0 mt-1 small">${cr.description}</p>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// 显示风险点
+function displayRiskPoints(data) {
+    const container = document.getElementById('risk-points-list');
+    document.getElementById('rp-count').textContent = data.length;
+
+    if (data.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-shield-exclamation" style="font-size: 3rem;"></i>
+                <p class="mt-3">暂无风险点数据</p>
+                <p>点击"风险点识别"按钮开始分析</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    data.forEach(rp => {
+        html += `
+            <div class="rp-item ${rp.severity}" onclick="showRPDetail('${rp.id}')">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <strong>${rp.risk_id}</strong> - ${rp.risk_name}
+                        <span class="badge bg-${getSeverityBadge(rp.severity)} ms-2">${rp.severity_display}</span>
+                    </div>
+                    <small class="text-muted">概率: ${(rp.probability * 100).toFixed(0)}%</small>
+                </div>
+                <p class="mb-0 mt-1 small">${rp.description}</p>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// 显示SOP文档
+function displaySOPDocuments(data) {
+    const container = document.getElementById('sop-documents-list');
+    document.getElementById('sop-count').textContent = data.length;
+
+    if (data.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-file-earmark-richtext" style="font-size: 3rem;"></i>
+                <p class="mt-3">暂无SOP文档</p>
+                <p>点击"生成文档"按钮创建文档</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '<div class="table-responsive"><table class="table table-hover">';
+    html += '<thead><tr><th>文档编号</th><th>标题</th><th>类型</th><th>状态</th><th>创建时间</th><th>操作</th></tr></thead><tbody>';
+
+    data.forEach(sop => {
+        html += `
+            <tr>
+                <td>${sop.document_number}</td>
+                <td>${sop.document_title}</td>
+                <td>${sop.document_type_display}</td>
+                <td><span class="badge bg-${getStatusBadge(sop.status)}">${sop.status_display}</span></td>
+                <td>${new Date(sop.created_at).toLocaleString()}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="showSOPDetail('${sop.id}')">
+                        <i class="bi bi-eye"></i> 查看
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+}
+
+// 显示3D解析结果
+function displayModel3DResult(data) {
+    const container = document.getElementById('model-3d-result');
+
+    let html = '<h6>解析结果</h6>';
+    html += `<p><strong>顶点数量：</strong>${data.vertex_count || 0}</p>`;
+    html += `<p><strong>面数量：</strong>${data.face_count || 0}</p>`;
+    html += `<p><strong>边数量：</strong>${data.edge_count || 0}</p>`;
+
+    if (data.volume) {
+        html += `<p><strong>体积：</strong>${parseFloat(data.volume).toFixed(2)} mm³</p>`;
+    }
+    if (data.surface_area) {
+        html += `<p><strong>表面积：</strong>${parseFloat(data.surface_area).toFixed(2)} mm²</p>`;
+    }
+
+    if (data.bounding_box) {
+        const dims = data.bounding_box.dimensions;
+        html += `<p><strong>边界尺寸：</strong>${dims[0].toFixed(2)} × ${dims[1].toFixed(2)} × ${dims[2].toFixed(2)} mm</p>`;
+    }
+
+    if (data.features && data.features.length > 0) {
+        html += '<h6 class="mt-3">特征</h6><ul>';
+        data.features.forEach(f => {
+            html += `<li>${f.description || f.type}</li>`;
+        });
+        html += '</ul>';
+    }
+
+    container.innerHTML = html;
+}
+
+function getDetailModal() {
+    return bootstrap.Modal.getOrCreateInstance(document.getElementById('detailModal'));
+}
+
+// 显示控制要求详情
+function showCRDetail(id) {
+    apiFetch(`/api/v1/parts/control-requirements/${id}/`).then(data => {
+        document.getElementById('detailTitle').textContent = `${data.requirement_id} - ${data.requirement_name}`;
+
+        const content = `
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>控制类型：</strong>${data.control_type_display}</p>
+                    <p><strong>描述：</strong>${data.description}</p>
+                    <p><strong>风险等级：</strong><span class="badge bg-${getRiskBadge(data.risk_level)}">${data.risk_level_display}</span></p>
+                    ${data.nominal_value ? `<p><strong>标称值：</strong>${data.nominal_value} ${data.unit || ''}</p>` : ''}
+                    ${data.upper_limit ? `<p><strong>上限：</strong>${data.upper_limit}</p>` : ''}
+                    ${data.lower_limit ? `<p><strong>下限：</strong>${data.lower_limit}</p>` : ''}
+                </div>
+                <div class="col-md-6">
+                    <p><strong>检测方法：</strong>${data.inspection_method || '-'}</p>
+                    <p><strong>检测工具：</strong>${data.inspection_tool || '-'}</p>
+                    <p><strong>检测频次：</strong>${data.inspection_frequency || '-'}</p>
+                    <p><strong>关键特性：</strong>${data.is_key_characteristic ? '是' : '否'}</p>
+                    <p><strong>安全关键：</strong>${data.is_safety_critical ? '是' : '否'}</p>
+                </div>
+            </div>
+            ${data.risk_factors && data.risk_factors.length > 0 ? `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6>风险因素</h6>
+                    <ul>
+                        ${data.risk_factors.map(f => `<li>${f}</li>`).join('')}
+                    </ul>
+                </div>
+            </div>
+            ` : ''}
+            ${data.impact_analysis ? `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6>影响分析</h6>
+                    <p>${data.impact_analysis}</p>
+                </div>
+            </div>
+            ` : ''}
+        `;
+
+        document.getElementById('detailContent').innerHTML = content;
+        getDetailModal().show();
+    }).catch(err => showError(err.message));
+}
+
+// 显示风险点详情
+function showRPDetail(id) {
+    apiFetch(`/api/v1/parts/risk-points/${id}/`).then(data => {
+        document.getElementById('detailTitle').textContent = `${data.risk_id} - ${data.risk_name}`;
+
+        const content = `
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>严重程度：</strong><span class="badge bg-${getSeverityBadge(data.severity)}">${data.severity_display}</span></p>
+                    <p><strong>发生概率：</strong>${(data.probability * 100).toFixed(0)}%</p>
+                    <p><strong>描述：</strong>${data.description}</p>
+                    <p><strong>风险类别：</strong>${data.risk_category || '-'}</p>
+                </div>
+                <div class="col-md-6">
+                    ${data.affected_dimensions && data.affected_dimensions.length > 0 ? `
+                    <p><strong>影响尺寸：</strong>${data.affected_dimensions.join(', ')}</p>
+                    ` : ''}
+                    ${data.affected_processes && data.affected_processes.length > 0 ? `
+                    <p><strong>影响工序：</strong>${data.affected_processes.join(', ')}</p>
+                    ` : ''}
+                </div>
+            </div>
+            ${data.prevention_measures ? `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6 class="text-success">预防措施</h6>
+                    <p>${data.prevention_measures}</p>
+                </div>
+            </div>
+            ` : ''}
+            ${data.correction_measures ? `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6 class="text-warning">纠正措施</h6>
+                    <p>${data.correction_measures}</p>
+                </div>
+            </div>
+            ` : ''}
+            ${data.contingency_plan ? `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6 class="text-danger">应急预案</h6>
+                    <p>${data.contingency_plan}</p>
+                </div>
+            </div>
+            ` : ''}
+        `;
+
+        document.getElementById('detailContent').innerHTML = content;
+        getDetailModal().show();
+    }).catch(err => showError(err.message));
+}
+
+// 显示SOP详情
+function showSOPDetail(id) {
+    apiFetch(`/api/v1/parts/sop-documents/${id}/`).then(data => {
+        document.getElementById('detailTitle').textContent = data.document_title;
+
+        let content = `
+            <div class="mb-3">
+                <span class="badge bg-${getStatusBadge(data.status)}">${data.status_display}</span>
+                <span class="badge bg-secondary ms-2">${data.document_type_display}</span>
+                <span class="badge bg-light text-dark ms-2">版本 ${data.version}</span>
+            </div>
+        `;
+
+        if (data.sections && data.sections.length > 0) {
+            content += '<div class="accordion" id="sopAccordion">';
+            data.sections.forEach((section, idx) => {
+                content += `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading${idx}">
+                            <button class="accordion-button ${idx === 0 ? '' : 'collapsed'}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${idx}">
+                                ${section.title}
+                            </button>
+                        </h2>
+                        <div id="collapse${idx}" class="accordion-collapse collapse ${idx === 0 ? 'show' : ''}" data-bs-parent="#sopAccordion">
+                            <div class="accordion-body">
+                                ${section.content.replace(/\n/g, '<br>')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            content += '</div>';
+        }
+
+        document.getElementById('detailContent').innerHTML = content;
+        getDetailModal().show();
+    }).catch(err => showError(err.message));
+}
+
+// 辅助函数
+function getRiskBadge(level) {
+    const map = { 'HIGH': 'danger', 'MEDIUM': 'warning', 'LOW': 'success' };
+    return map[level] || 'secondary';
+}
+
+function getSeverityBadge(severity) {
+    const map = { 'CRITICAL': 'danger', 'MAJOR': 'warning', 'MINOR': 'success' };
+    return map[severity] || 'secondary';
+}
+
+function getStatusBadge(status) {
+    const map = { 'DRAFT': 'secondary', 'REVIEW': 'info', 'APPROVED': 'success', 'PUBLISHED': 'primary', 'OBSOLETE': 'danger' };
+    return map[status] || 'secondary';
+}
+
+function showProgress(title, message) {
+    document.getElementById('progressTitle').textContent = title;
+    document.getElementById('progressMessage').textContent = message;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('progressModal')).show();
+}
+
+function hideProgress() {
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('progressModal')).hide();
+}
+
+function showSuccess(message) {
+    alert('成功：' + message);
+}
+
+function showError(message) {
+    alert('错误：' + message);
+}
+</script>
+{% endblock %}

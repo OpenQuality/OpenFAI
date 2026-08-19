@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}编辑审批流程{% else %}创建审批流程{% endif %} - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'workflow_list' %}">审批流程</a></li>
+<li class="breadcrumb-item active">{% if is_edit %}编辑{% else %}创建{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-{% if is_edit %}pencil{% else %}plus-circle{% endif %} me-2"></i>{% if is_edit %}编辑审批流程{% else %}创建审批流程{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">流程类型 <span class="text-danger">*</span></label>
+                            <select class="form-select" name="workflow_type" required id="workflowType">
+                                <option value="">请选择类型</option>
+                                <option value="PLAN_APPROVAL" {% if object and object.workflow_type == 'PLAN_APPROVAL' %}selected{% endif %}>检验计划审批</option>
+                                <option value="REPORT_APPROVAL" {% if object and object.workflow_type == 'REPORT_APPROVAL' %}selected{% endif %}>检验报告审批</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    {% if not is_edit %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <i class="bi bi-link me-2"></i>关联对象
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">关联检验计划</label>
+                                    <select class="form-select" name="plan" id="id_plan">
+                                        <option value="">请选择检验计划</option>
+                                        {% for plan in plans %}
+                                        <option value="{{ plan.id }}">{{ plan.plan_number }} - {{ plan.plan_name }} ({{ plan.part.part_number }})</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">选择待审核的检验计划</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">关联检验报告</label>
+                                    <select class="form-select" name="report" id="id_report">
+                                        <option value="">请选择检验报告</option>
+                                        {% for report in reports %}
+                                        <option value="{{ report.id }}">{{ report.report_number }} - {{ report.title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <div class="form-text">选择待发布的检验报告</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 审批人配置 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <i class="bi bi-people me-2"></i>审批人配置
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">审核人 <span class="text-danger">*</span></label>
+                                    <select class="form-select" name="reviewer" required>
+                                        <option value="">请选择审核人</option>
+                                        {% for user in reviewers %}
+                                        <option value="{{ user.id }}">{{ user.username }} ({{ user.get_full_name|default:user.email|default:'' }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">批准人 <span class="text-danger">*</span></label>
+                                    <select class="form-select" name="approver" required>
+                                        <option value="">请选择批准人</option>
+                                        {% for user in approvers %}
+                                        <option value="{{ user.id }}">{{ user.username }} ({{ user.get_full_name|default:user.email|default:'' }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">截止日期</label>
+                                    <input type="date" class="form-control" name="due_date">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" name="notes" rows="3" placeholder="请输入备注...">{% if object %}{{ object.notes }}{% endif %}</textarea>
+                    </div>
+                    
+                    {% if is_edit %}
+                    <div class="mb-3">
+                        <label class="form-label">状态</label>
+                        <select class="form-select" name="status">
+                            <option value="PENDING" {% if object.status == 'PENDING' %}selected{% endif %}>待处理</option>
+                            <option value="IN_PROGRESS" {% if object.status == 'IN_PROGRESS' %}selected{% endif %}>进行中</option>
+                            <option value="COMPLETED" {% if object.status == 'COMPLETED' %}selected{% endif %}>已完成</option>
+                            <option value="REJECTED" {% if object.status == 'REJECTED' %}selected{% endif %}>已拒绝</option>
+                            <option value="CANCELLED" {% if object.status == 'CANCELLED' %}selected{% endif %}>已取消</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                    
+                    {% if not is_edit %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        创建审批流程后将自动生成以下审批步骤：
+                        <ol class="mt-2 mb-0">
+                            <li>提交（自动完成）</li>
+                            <li>审核 - 由选择的审核人处理</li>
+                            <li>批准 - 由选择的批准人处理</li>
+                        </ol>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'workflow_list' %}" class="btn btn-secondary">取消</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>{% if is_edit %}保存修改{% else %}创建流程{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

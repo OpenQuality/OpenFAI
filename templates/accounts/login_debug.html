@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+
+{% block title %}登录调试 - FAI质量评审系统{% endblock %}
+
+{% block login_content %}
+<div class="login-container">
+    <div class="login-card" style="max-width: 600px;">
+        <div class="login-logo">
+            <i class="bi bi-bug"></i>
+            <h2>登录诊断</h2>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title mb-3">当前状态</h5>
+                
+                <div class="mb-3">
+                    <strong>用户认证状态:</strong>
+                    <span id="auth-status" class="badge bg-secondary">检查中...</span>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>用户名:</strong>
+                    <span id="username">-</span>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Session ID:</strong>
+                    <code id="session-key">-</code>
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Cookies:</strong>
+                    <pre id="cookies" class="bg-light p-2 rounded" style="max-height: 100px; overflow: auto;">-</pre>
+                </div>
+                
+                <hr>
+                
+                <h5 class="card-title mb-3">测试登录</h5>
+                
+                {% if error %}
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+                </div>
+                {% endif %}
+                
+                {% if success %}
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle me-2"></i>{{ success }}
+                </div>
+                {% endif %}
+                
+                <form method="post" action="{% url 'login' %}">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">用户名</label>
+                            <input type="text" class="form-control" name="username" placeholder="请输入用户名" value="{{ username|default:'' }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">密码</label>
+                            <input type="password" class="form-control" name="password" placeholder="请输入密码" required>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 mb-3">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>登录
+                    </button>
+                </form>
+                
+                <hr>
+                
+                <h5 class="card-title mb-3">快捷操作</h5>
+                
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="checkAuth()">
+                        <i class="bi bi-arrow-repeat me-2"></i>刷新认证状态
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="testLogin()">
+                        <i class="bi bi-play me-2"></i>测试API登录 (admin/admin123)
+                    </button>
+                    <a href="{% url 'logout' %}" class="btn btn-outline-danger">
+                        <i class="bi bi-box-arrow-right me-2"></i>登出
+                    </a>
+                </div>
+                
+                <hr>
+                
+                <h5 class="card-title mb-3">环境信息</h5>
+                <table class="table table-sm">
+                    <tr><td>当前URL</td><td><code id="current-url">-</code></td></tr>
+                    <tr><td>协议</td><td><code id="protocol">-</code></td></tr>
+                    <tr><td>主机名</td><td><code id="hostname">-</code></td></tr>
+                    <tr><td>端口</td><td><code id="port">-</code></td></tr>
+                </table>
+                
+                <div class="alert alert-info small">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>提示:</strong> 如果登录后仍然显示未认证，请检查：
+                    <ul class="mb-0 mt-2">
+                        <li>浏览器是否禁用了Cookie</li>
+                        <li>是否使用了隐私模式/无痕模式</li>
+                        <li>是否有浏览器扩展阻止了Cookie</li>
+                        <li>HTTP和HTTPS之间的Cookie共享问题</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 显示环境信息
+document.getElementById('current-url').textContent = window.location.href;
+document.getElementById('protocol').textContent = window.location.protocol;
+document.getElementById('hostname').textContent = window.location.hostname;
+document.getElementById('port').textContent = window.location.port || '(默认)';
+
+// 获取所有Cookie
+document.getElementById('cookies').textContent = document.cookie || '(无)';
+
+// 检查认证状态
+async function checkAuth() {
+    try {
+        const response = await fetch('/api/v1/accounts/debug-auth/');
+        
+        // 先检查响应状态
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // 尝试解析 JSON
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            const text = await response.text();
+            console.error('响应不是有效的 JSON:', text);
+            throw new Error('服务器返回了非 JSON 响应');
+        }
+        
+        const statusEl = document.getElementById('auth-status');
+        if (data.user && data.user.is_authenticated) {
+            statusEl.textContent = '已认证';
+            statusEl.className = 'badge bg-success';
+            document.getElementById('username').textContent = data.user.username || '-';
+        } else {
+            statusEl.textContent = '未认证';
+            statusEl.className = 'badge bg-danger';
+            document.getElementById('username').textContent = '-';
+        }
+        
+        document.getElementById('session-key').textContent = (data.session && data.session.session_key) || '-';
+        document.getElementById('cookies').textContent = JSON.stringify(data.cookies || {}, null, 2) || '(无)';
+        
+    } catch (e) {
+        document.getElementById('auth-status').textContent = '检查失败';
+        document.getElementById('auth-status').className = 'badge bg-warning';
+        console.error('检查认证状态失败:', e);
+    }
+}
+
+// 测试API登录
+async function testLogin() {
+    try {
+        const response = await fetch('/api/v1/accounts/api-auth/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                username: 'admin',
+                password: 'admin123'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            alert('API登录成功!\n用户: ' + data.user.username + '\nSession: ' + data.session_key);
+            checkAuth();
+        } else {
+            alert('API登录失败: ' + data.message);
+        }
+    } catch (e) {
+        alert('API登录请求失败: ' + e.message);
+    }
+}
+
+// 页面加载时检查
+checkAuth();
+</script>
+{% endblock %}

@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ user_obj.username }} - 用户详情 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'user_list' %}">用户管理</a></li>
+<li class="breadcrumb-item active">{{ user_obj.username }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ user_obj.username }}</h2>
+        <p class="text-muted mb-0">{{ user_obj.last_name }}{{ user_obj.first_name }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        {% if not user_obj.is_superuser %}
+        <!-- 审核状态 -->
+        {% if user_obj.is_active %}
+        <span class="badge bg-success fs-6">已激活</span>
+        {% else %}
+        <span class="badge bg-secondary fs-6">已停用</span>
+        {% endif %}
+        {% else %}
+        <span class="badge bg-danger fs-6">超级管理员</span>
+        {% endif %}
+        <a href="{% url 'user_edit' user_obj.pk %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>编辑
+        </a>
+        <a href="{% url 'user_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left me-1"></i>返回列表
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 左侧：用户信息 -->
+    <div class="col-md-4">
+        <!-- 审核操作（仅管理员可见，且不针对超管） -->
+        {% if user.is_staff and not user_obj.is_superuser %}
+        <div class="card mb-4 border-{% if user_obj.is_active %}success{% else %}secondary{% endif %}">
+            <div class="card-header bg-{% if user_obj.is_active %}success{% else %}secondary{% endif %} text-white">
+                <i class="bi bi-check-circle me-2"></i>用户状态管理
+            </div>
+            <div class="card-body">
+                {% if user_obj.is_active %}
+                <p class="text-muted small">该用户当前状态为已激活。如需停用账户，请点击下方按钮。</p>
+                <button class="btn btn-warning w-100" onclick="approveUser('suspend')">
+                    <i class="bi bi-pause-circle me-1"></i>停用账户
+                </button>
+                {% else %}
+                <p class="text-muted small">该用户当前状态为已停用。</p>
+                <button class="btn btn-success w-100" onclick="approveUser('approve')">
+                    <i class="bi bi-check-lg me-1"></i>恢复账户
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 基本信息 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-person me-2"></i>基本信息
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted small">用户名</label>
+                    <p class="mb-0 fw-bold">{{ user_obj.username }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">姓名</label>
+                    <p class="mb-0">{{ user_obj.last_name }}{{ user_obj.first_name|default:"-" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">邮箱</label>
+                    <p class="mb-0">{{ user_obj.email|default:"-" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">注册时间</label>
+                    <p class="mb-0">{{ user_obj.date_joined|date:"Y-m-d H:i" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">最后登录</label>
+                    <p class="mb-0">{{ user_obj.last_login|date:"Y-m-d H:i"|default:"从未登录" }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 档案信息 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-earmark-text me-2"></i>档案信息</span>
+                <button class="btn btn-sm btn-outline-primary" onclick="editProfile()">
+                    <i class="bi bi-pencil"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted small">工号</label>
+                    <p class="mb-0">{{ profile.employee_id }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">部门</label>
+                    <p class="mb-0">{{ profile.department }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">职位</label>
+                    <p class="mb-0">{{ profile.position|default:"-" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">电话</label>
+                    <p class="mb-0">{{ profile.phone|default:"-" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右侧：角色和权限 -->
+    <div class="col-md-8">
+        <!-- 角色分配 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-shield-check me-2"></i>角色分配
+            </div>
+            <div class="card-body">
+                <form id="roleForm">
+                    {% csrf_token %}
+                    <div class="row">
+                        {% for role in all_roles %}
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check card p-3 {% if role.id in user_role_ids %}border-primary{% endif %}">
+                                <input class="form-check-input" type="checkbox" 
+                                       name="roles" value="{{ role.id }}" 
+                                       id="role_{{ role.id }}"
+                                       {% if role.id in user_role_ids %}checked{% endif %}
+                                       onchange="updateRoles()">
+                                <label class="form-check-label" for="role_{{ role.id }}">
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge bg-{% if role.code == 'ADMIN' %}danger{% elif role.code == 'APPROVER' %}success{% elif role.code == 'REVIEWER' %}warning{% else %}primary{% endif %} me-2">
+                                            {{ role.name }}
+                                        </span>
+                                        {% if not role.is_active %}
+                                        <span class="badge bg-secondary">已禁用</span>
+                                        {% endif %}
+                                    </div>
+                                    <small class="text-muted d-block mt-1">{{ role.description }}</small>
+                                </label>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <p class="text-muted text-center">暂无可分配的角色</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 当前权限概览 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-key me-2"></i>当前权限概览
+            </div>
+            <div class="card-body">
+                {% if profile.roles.exists %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>模块</th>
+                                <th>权限</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><i class="bi bi-box-seam me-1"></i>零件管理</td>
+                                <td>
+                                    {% for role in profile.roles.all %}
+                                        {% if role.permissions.parts %}
+                                        <span class="badge bg-light text-dark me-1">{{ role.name }}: {{ role.permissions.parts|join:", " }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><i class="bi bi-clipboard-check me-1"></i>检验计划</td>
+                                <td>
+                                    {% for role in profile.roles.all %}
+                                        {% if role.permissions.inspections %}
+                                        <span class="badge bg-light text-dark me-1">{{ role.name }}: {{ role.permissions.inspections|join:", " }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><i class="bi bi-file-earmark-pdf me-1"></i>检验报告</td>
+                                <td>
+                                    {% for role in profile.roles.all %}
+                                        {% if role.permissions.reports %}
+                                        <span class="badge bg-light text-dark me-1">{{ role.name }}: {{ role.permissions.reports|join:", " }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><i class="bi bi-folder me-1"></i>项目管理</td>
+                                <td>
+                                    {% for role in profile.roles.all %}
+                                        {% if role.permissions.projects %}
+                                        <span class="badge bg-light text-dark me-1">{{ role.name }}: {{ role.permissions.projects|join:", " }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><i class="bi bi-diagram-3 me-1"></i>审批流程</td>
+                                <td>
+                                    {% for role in profile.roles.all %}
+                                        {% if role.permissions.workflows %}
+                                        <span class="badge bg-light text-dark me-1">{{ role.name }}: {{ role.permissions.workflows|join:", " }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">该用户尚未分配角色，暂无权限</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 拒绝原因模态框 -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">拒绝原因</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <textarea class="form-control" id="rejectReason" rows="3" placeholder="请输入拒绝原因..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="approveUser('reject')">确认拒绝</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function updateRoles() {
+    const form = document.getElementById('roleForm');
+    const formData = new FormData(form);
+    const roles = formData.getAll('roles');
+    
+    fetch('/api/v1/accounts/users/{{ user_obj.pk }}/assign-roles/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({ roles: roles })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast('角色更新成功', 'success');
+            setTimeout(() => location.reload(), 1000);
+        }
+    });
+}
+
+function approveUser(action) {
+    let reason = '';
+    if (action === 'reject') {
+        reason = document.getElementById('rejectReason').value;
+        if (!reason) {
+            alert('请输入拒绝原因');
+            return;
+        }
+    }
+    
+    const actionText = {
+        'approve': '通过',
+        'reject': '拒绝',
+        'suspend': '停用'
+    };
+    
+    if (!confirm(`确定要${actionText[action]}该用户吗？`)) {
+        return;
+    }
+    
+    fetch('/api/v1/accounts/users/{{ user_obj.pk }}/approve/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({ action: action, reason: reason })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(data.message || '操作失败', 'danger');
+        }
+    })
+    .catch(error => {
+        showToast('请求失败: ' + error, 'danger');
+    });
+}
+
+function showRejectModal() {
+    const modal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    modal.show();
+}
+
+function showToast(message, type) {
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type} position-fixed top-0 end-0 m-3`;
+    toast.innerHTML = `<div class="d-flex"><div class="toast-body">${message}</div></div>`;
+    document.body.appendChild(toast);
+    new bootstrap.Toast(toast).show();
+}
+
+function editProfile() {
+    alert('档案编辑功能开发中，请通过编辑按钮修改基本信息');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}关于系统 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li><li class="breadcrumb-item active">关于系统</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-info-circle me-2"></i>关于系统</h2>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <h4 class="mb-3"><i class="bi bi-shield-check me-2"></i>FAI质量评审系统</h4>
+        <p class="text-muted">首件检验（First Article Inspection）自动化质量评审平台</p>
+
+        <hr>
+
+        <p>
+            本系统支持从CAD文件解析生成检验计划、集成测量设备数据、自动计算Cp/Cpk过程能力指标，
+            并生成符合 <strong>AS9102</strong> / <strong>PPAP</strong> 标准的检验报告，
+            包含完整的审批工作流和电子签名功能。
+        </p>
+
+        <h6 class="mt-4">核心功能模块</h6>
+        <ul class="text-muted">
+            <li>零件管理与图纸OCR识别</li>
+            <li>检验计划与特性定义</li>
+            <li>测量数据采集与统计分析</li>
+            <li>检验报告生成与导出</li>
+            <li>审批工作流与电子签名</li>
+            <li>不合格品（NCR）处理</li>
+        </ul>
+
+        <hr>
+
+        <p class="text-muted mb-0">版本 1.0.0</p>
+    </div>
+</div>
+{% endblock %}

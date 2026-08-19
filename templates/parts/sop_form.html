@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}编辑SOP{% else %}新建SOP{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'sop_list' %}">SOP文档</a></li>
+<li class="breadcrumb-item active">{% if object %}编辑{% else %}新建{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-file-earmark-text me-2"></i>{% if object %}编辑SOP文档{% else %}新建SOP文档{% endif %}</h2>
+        <a href="{% url 'sop_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 返回
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong>表单填写有误，请检查以下字段：</strong>
+                    <ul class="mb-0">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                            <li>{{ field.label }}：{{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">零件</label>
+                        <select name="part" class="form-select">
+                            <option value="">-- 选择零件 --</option>
+                            {% for part in parts %}
+                            <option value="{{ part.pk }}" {% if form.part.value|stringformat:"s" == part.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ part.part_number }} - {{ part.part_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">文档编号 <span class="text-danger">*</span></label>
+                        <input type="text" name="document_number" class="form-control" required 
+                               value="{{ form.document_number.value|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">文档标题 <span class="text-danger">*</span></label>
+                        <input type="text" name="document_title" class="form-control" required
+                               value="{{ form.document_title.value|default:'' }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">文档类型</label>
+                        <select name="document_type" class="form-select">
+                            <option value="SOP" {% if form.document_type.value == 'SOP' %}selected{% endif %}>标准操作程序</option>
+                            <option value="WORK_INSTRUCTION" {% if form.document_type.value == 'WORK_INSTRUCTION' %}selected{% endif %}>作业指导书</option>
+                            <option value="INSPECTION_GUIDE" {% if form.document_type.value == 'INSPECTION_GUIDE' %}selected{% endif %}>检验指导书</option>
+                            <option value="CONTROL_PLAN" {% if form.document_type.value == 'CONTROL_PLAN' %}selected{% endif %}>控制计划</option>
+                            <option value="INTERNAL_GUIDE" {% if form.document_type.value == 'INTERNAL_GUIDE' %}selected{% endif %}>内部指导书</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">版本</label>
+                        <input type="text" name="version" class="form-control" value="{{ form.version.value|default:'1.0' }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">状态</label>
+                        <select name="status" class="form-select">
+                            <option value="DRAFT" {% if form.status.value == 'DRAFT' %}selected{% endif %}>草稿</option>
+                            <option value="REVIEW" {% if form.status.value == 'REVIEW' %}selected{% endif %}>审核中</option>
+                            <option value="APPROVED" {% if form.status.value == 'APPROVED' %}selected{% endif %}>已批准</option>
+                            <option value="PUBLISHED" {% if form.status.value == 'PUBLISHED' %}selected{% endif %}>已发布</option>
+                            <option value="OBSOLETE" {% if form.status.value == 'OBSOLETE' %}selected{% endif %}>已作废</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">生效日期</label>
+                        <input type="date" name="effective_date" class="form-control"
+                               value="{{ form.effective_date.value|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">文档内容 <span class="text-danger">*</span></label>
+                    <textarea name="content" class="form-control" rows="15" required>{{ form.content.value|default:'' }}</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">备注</label>
+                    <textarea name="notes" class="form-control" rows="3">{{ form.notes.value|default:'' }}</textarea>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

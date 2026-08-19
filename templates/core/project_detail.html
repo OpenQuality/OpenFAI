@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ project.project_name }} - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'project_list' %}">项目管理</a></li>
+<li class="breadcrumb-item active">{{ project.project_number }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ project.project_name }}</h2>
+        <p class="text-muted mb-0">{{ project.project_number }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <span class="badge bg-{% if project.status == 'COMPLETED' %}success{% elif project.status == 'IN_PROGRESS' %}warning{% elif project.status == 'PENDING_REVIEW' %}info{% else %}secondary{% endif %} fs-6">
+            {{ project.get_status_display }}
+        </span>
+        <a href="{% url 'project_edit' project.pk %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>编辑
+        </a>
+        <form method="post" action="{% url 'project_delete' project.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除这个项目吗？');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">
+                <i class="bi bi-trash me-1"></i>删除
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- 进度条 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex justify-content-between mb-2">
+            <span>项目进度</span>
+            <span>{{ progress_percentage }}%</span>
+        </div>
+        <div class="progress" style="height: 25px;">
+            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
+                 role="progressbar" 
+                 style="width: {{ progress_percentage }}%;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 左侧：项目信息 -->
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>项目信息
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="text-muted small">项目编号</label>
+                    <p class="mb-0 fw-bold">{{ project.project_number }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">项目名称</label>
+                    <p class="mb-0">{{ project.project_name }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">描述</label>
+                    <p class="mb-0">{{ project.description|default:"-" }}</p>
+                </div>
+                
+                <!-- 关联信息 -->
+                <hr>
+                <h6 class="text-muted">关联信息</h6>
+                <div class="mb-3">
+                    <label class="text-muted small">关联零件</label>
+                    <p class="mb-0">
+                        {% if project.part %}
+                        <a href="{% url 'part_detail' project.part.pk %}" class="text-decoration-none">
+                            {{ project.part.part_number }} - {{ project.part.part_name }}
+                        </a>
+                        {% else %}
+                        <span class="text-muted">未关联</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">关联检验计划</label>
+                    <p class="mb-0">
+                        {% if project.inspection_plan %}
+                        <a href="{% url 'plan_detail' project.inspection_plan.pk %}" class="text-decoration-none">
+                            {{ project.inspection_plan.plan_number }} - {{ project.inspection_plan.plan_name }}
+                        </a>
+                        {% else %}
+                        <span class="text-muted">未关联</span>
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <hr>
+                <div class="mb-3">
+                    <label class="text-muted small">开始日期</label>
+                    <p class="mb-0">{{ project.start_date|default:"-" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">目标日期</label>
+                    <p class="mb-0">{{ project.target_date|default:"-" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">创建人</label>
+                    <p class="mb-0">{{ project.created_by|default:"-" }}</p>
+                </div>
+                <div class="mb-3">
+                    <label class="text-muted small">创建时间</label>
+                    <p class="mb-0">{{ project.created_at|date:"Y-m-d H:i" }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 历史操作记录 -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-clock-history me-2"></i>历史操作记录
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for log in logs %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <span class="badge bg-{% if log.action == 'CREATE' %}success{% elif log.action == 'UPDATE' %}primary{% elif log.action == 'DELETE' %}danger{% elif log.action == 'APPROVE' %}info{% else %}secondary{% endif %}">
+                                {{ log.get_action_display }}
+                            </span>
+                            <small class="text-muted">{{ log.created_at|date:"Y-m-d H:i" }}</small>
+                        </div>
+                        <p class="mb-1 small">{{ log.description }}</p>
+                        <small class="text-muted">操作人: {{ log.user.username|default:"系统" }}</small>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted py-3">
+                        暂无操作记录
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右侧：操作步骤 -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-list-check me-2"></i>操作步骤
+            </div>
+            <div class="card-body">
+                <div class="step-container">
+                    {% for step in steps %}
+                    <div class="step-item d-flex align-items-start mb-3 p-3 border rounded {% if step.status == 'COMPLETED' %}border-success bg-light{% elif step.status == 'IN_PROGRESS' %}border-warning{% else %}border-secondary{% endif %}">
+                        <!-- 状态图标 -->
+                        <div class="step-status me-3">
+                            {% if step.status == 'COMPLETED' %}
+                            <span class="badge bg-success rounded-circle p-2">
+                                <i class="bi bi-check-lg"></i>
+                            </span>
+                            {% elif step.status == 'IN_PROGRESS' %}
+                            <span class="badge bg-warning rounded-circle p-2">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary rounded-circle p-2">
+                                {{ step.step_order }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 步骤内容 -->
+                        <div class="step-content flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-1">{{ step.step_name }}</h6>
+                                <span class="badge bg-{% if step.status == 'COMPLETED' %}success{% elif step.status == 'IN_PROGRESS' %}warning{% else %}secondary{% endif %}">
+                                    {{ step.get_status_display }}
+                                </span>
+                            </div>
+                            {% if step.notes %}
+                            <p class="text-muted small mb-0">{{ step.notes }}</p>
+                            {% endif %}
+                            {% if step.completed_at %}
+                            <small class="text-muted">完成于: {{ step.completed_at|date:"Y-m-d H:i" }}</small>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="step-actions ms-3">
+                            <form method="post" action="{% url 'project_step_update' step.pk %}">
+                                {% csrf_token %}
+                                {% if step.status == 'PENDING' %}
+                                <input type="hidden" name="status" value="IN_PROGRESS">
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-play"></i> 开始
+                                </button>
+                                {% elif step.status == 'IN_PROGRESS' %}
+                                <input type="hidden" name="status" value="COMPLETED">
+                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-check"></i> 完成
+                                </button>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- 步骤连接线 -->
+                <style>
+                .step-item:not(:last-child)::after {
+                    content: '';
+                    position: absolute;
+                    left: 23px;
+                    top: 60px;
+                    width: 2px;
+                    height: 20px;
+                    background: #dee2e6;
+                }
+                .step-item {
+                    position: relative;
+                }
+                </style>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}编辑用户 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'user_list' %}">用户管理</a></li>
+<li class="breadcrumb-item"><a href="{% url 'user_detail' object.pk %}">{{ object.username }}</a></li>
+<li class="breadcrumb-item active">编辑</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-pencil me-2"></i>编辑用户</h2>
+    <a href="{% url 'user_detail' object.pk %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>返回
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <form method="post">
+            {% csrf_token %}
+            
+            <!-- 基本信息 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-person me-2"></i>基本信息
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">姓</label>
+                            <input type="text" class="form-control" name="last_name" value="{{ object.last_name }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">名</label>
+                            <input type="text" class="form-control" name="first_name" value="{{ object.first_name }}">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">邮箱</label>
+                        <input type="email" class="form-control" name="email" value="{{ object.email }}">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_active" id="is_active" 
+                                       {% if object.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="is_active">用户激活</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_staff" id="is_staff" 
+                                       {% if object.is_staff %}checked{% endif %}>
+                                <label class="form-check-label" for="is_staff">职员状态</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 档案信息 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-file-earmark-text me-2"></i>档案信息
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">工号</label>
+                            <input type="text" class="form-control" name="employee_id" value="{{ profile.employee_id }}" readonly>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">职位</label>
+                            <input type="text" class="form-control" name="position" value="{{ profile.position }}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">部门</label>
+                            <input type="text" class="form-control" name="department" value="{{ profile.department }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">电话</label>
+                            <input type="text" class="form-control" name="phone" value="{{ profile.phone }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 角色分配 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-shield-check me-2"></i>角色分配
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for role in all_roles %}
+                        <div class="col-md-6 mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="user_roles" value="{{ role.id }}" 
+                                       id="role_{{ role.id }}"
+                                       {% if role.id in user_role_ids %}checked{% endif %}>
+                                <label class="form-check-label" for="role_{{ role.id }}">
+                                    <span class="badge bg-{% if role.code == 'ADMIN' %}danger{% elif role.code == 'APPROVER' %}success{% elif role.code == 'REVIEWER' %}warning{% else %}primary{% endif %}">
+                                        {{ role.name }}
+                                    </span>
+                                    <small class="text-muted ms-1">{{ role.description }}</small>
+                                </label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check me-1"></i>保存
+                </button>
+                <a href="{% url 'user_detail' object.pk %}" class="btn btn-outline-secondary">取消</a>
+            </div>
+        </form>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>提示
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2"><i class="bi bi-check text-success me-2"></i>用户名不可修改</li>
+                    <li class="mb-2"><i class="bi bi-check text-success me-2"></i>超级管理员拥有所有权限</li>
+                    <li class="mb-2"><i class="bi bi-check text-success me-2"></i>禁用用户将无法登录系统</li>
+                    <li class="mb-2"><i class="bi bi-check text-success me-2"></i>角色变更后立即生效</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

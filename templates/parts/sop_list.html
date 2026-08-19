@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}SOP文档管理{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'sop_list' %}">SOP文档</a></li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-file-earmark-text me-2"></i>SOP文档管理</h2>
+        {% if can_add %}
+        <a href="{% url 'sop_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> 新建SOP文档
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- 筛选器 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">文档类型</label>
+                    <select name="document_type" class="form-select">
+                        <option value="">全部</option>
+                        <option value="SOP">标准操作程序</option>
+                        <option value="WORK_INSTRUCTION">作业指导书</option>
+                        <option value="INSPECTION_GUIDE">检验指导书</option>
+                        <option value="CONTROL_PLAN">控制计划</option>
+                        <option value="INTERNAL_GUIDE">内部指导书</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">状态</label>
+                    <select name="status" class="form-select">
+                        <option value="">全部</option>
+                        <option value="DRAFT">草稿</option>
+                        <option value="REVIEW">审核中</option>
+                        <option value="APPROVED">已批准</option>
+                        <option value="PUBLISHED">已发布</option>
+                        <option value="OBSOLETE">已作废</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">零件</label>
+                    <input type="text" name="part" class="form-control" placeholder="零件编号">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-secondary me-2">
+                        <i class="bi bi-search"></i> 筛选
+                    </button>
+                    <a href="{% url 'sop_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i> 重置
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>文档编号</th>
+                            <th>文档标题</th>
+                            <th>类型</th>
+                            <th>版本</th>
+                            <th>零件</th>
+                            <th>状态</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sop in sop_documents %}
+                        <tr>
+                            <td><strong>{{ sop.document_number }}</strong></td>
+                            <td>{{ sop.document_title }}</td>
+                            <td>
+                                <span class="badge bg-info">
+                                    {% if sop.document_type == 'SOP' %}标准操作程序
+                                    {% elif sop.document_type == 'WORK_INSTRUCTION' %}作业指导书
+                                    {% elif sop.document_type == 'INSPECTION_GUIDE' %}检验指导书
+                                    {% elif sop.document_type == 'CONTROL_PLAN' %}控制计划
+                                    {% else %}其他{% endif %}
+                                </span>
+                            </td>
+                            <td>{{ sop.version }}</td>
+                            <td>
+                                {% if sop.part %}
+                                <a href="{% url 'part_detail' sop.part.pk %}">{{ sop.part.part_number }}</a>
+                                {% else %}-
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if sop.status == 'PUBLISHED' %}
+                                <span class="badge bg-success">已发布</span>
+                                {% elif sop.status == 'APPROVED' %}
+                                <span class="badge bg-primary">已批准</span>
+                                {% elif sop.status == 'REVIEW' %}
+                                <span class="badge bg-warning">审核中</span>
+                                {% elif sop.status == 'OBSOLETE' %}
+                                <span class="badge bg-secondary">已作废</span>
+                                {% else %}
+                                <span class="badge bg-light text-dark">草稿</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ sop.created_at|date:"Y-m-d" }}</td>
+                            <td>
+                                <a href="{% url 'sop_detail' sop.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'sop_edit' sop.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                暂无SOP文档
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page_obj.has_other_pages %}
+            <nav>
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">首页</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">末页</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+
+{% block title %}审批详情 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'workflow_list' %}">审批流程</a></li>
+<li class="breadcrumb-item active">{{ workflow.get_workflow_type_display }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-diagram-3 me-2"></i>
+                    {{ workflow.get_workflow_type_display }} - {{ workflow.get_status_display }}
+                </h5>
+                <div>
+                    <span class="badge bg-{% if workflow.status == 'COMPLETED' %}success{% elif workflow.status == 'IN_PROGRESS' %}warning{% elif workflow.status == 'REJECTED' %}danger{% else %}secondary{% endif %} fs-6">
+                        {{ workflow.get_status_display }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <p class="mb-2"><strong>发起人:</strong> {{ workflow.initiated_by.username }}</p>
+                        <p class="mb-2"><strong>发起时间:</strong> {{ workflow.initiated_at|date:"Y-m-d H:i" }}</p>
+                        {% if workflow.completed_at %}
+                        <p class="mb-2"><strong>完成时间:</strong> {{ workflow.completed_at|date:"Y-m-d H:i" }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        {% if workflow.plan %}
+                        <p class="mb-2"><strong>关联计划:</strong> 
+                            <a href="{% url 'plan_detail' workflow.plan.pk %}">{{ workflow.plan.plan_number }}</a>
+                        </p>
+                        {% endif %}
+                        {% if workflow.report %}
+                        <p class="mb-2"><strong>关联报告:</strong> 
+                            <a href="{% url 'report_detail' workflow.report.pk %}">{{ workflow.report.report_number }}</a>
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if workflow.notes %}
+                <div class="alert alert-info">
+                    <strong>备注:</strong> {{ workflow.notes }}
+                </div>
+                {% endif %}
+                
+                <hr>
+                
+                <h6 class="mb-3"><i class="bi bi-list-check me-2"></i>审批流程</h6>
+                <div class="workflow-steps">
+                    {% for step in steps %}
+                    <div class="card mb-3 border-{% if step.status == 'APPROVED' %}success{% elif step.status == 'REJECTED' %}danger{% elif step.status == 'PENDING' and forloop.counter == workflow.current_step %}warning{% else %}secondary{% endif %}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <span class="badge bg-{% if step.status == 'APPROVED' %}success{% elif step.status == 'REJECTED' %}danger{% elif step.status == 'PENDING' and forloop.counter == workflow.current_step %}warning{% else %}secondary{% endif %} me-2">
+                                            步骤 {{ step.step_number }}
+                                        </span>
+                                        {{ step.step_name }}
+                                    </h6>
+                                    {% if step.approver %}
+                                    <p class="text-muted mb-0 small">审批人: {{ step.approver.username }}</p>
+                                    {% endif %}
+                                </div>
+                                <span class="badge bg-{% if step.status == 'APPROVED' %}success{% elif step.status == 'REJECTED' %}danger{% elif step.status == 'PENDING' %}warning{% else %}secondary{% endif %}">
+                                    {{ step.get_status_display }}
+                                </span>
+                            </div>
+                            
+                            {% if step.comments %}
+                            <div class="mt-2 p-2 bg-light rounded">
+                                <small><strong>意见:</strong> {{ step.comments }}</small>
+                            </div>
+                            {% endif %}
+                            
+                            {% if step.approved_at %}
+                            <small class="text-muted">审批时间: {{ step.approved_at|date:"Y-m-d H:i" }}</small>
+                            {% endif %}
+                            
+                            {% if step.status == 'PENDING' and forloop.counter == workflow.current_step and user == step.approver %}
+                            <div class="mt-3">
+                                <form id="approval-form" class="row g-2">
+                                    <div class="col-12">
+                                        <textarea class="form-control" name="comments" rows="2" placeholder="审批意见"></textarea>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button type="button" class="btn btn-success" onclick="approveWorkflow('{{ workflow.pk }}')">
+                                            <i class="bi bi-check-circle me-1"></i>通过
+                                        </button>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button type="button" class="btn btn-danger" onclick="rejectWorkflow('{{ workflow.pk }}')">
+                                            <i class="bi bi-x-circle me-1"></i>拒绝
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-info-circle me-2"></i>操作</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'workflow_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>返回列表
+                    </a>
+                    {% if workflow.status == 'PENDING' or workflow.status == 'IN_PROGRESS' %}
+                    <a href="{% url 'workflow_edit' workflow.pk %}" class="btn btn-outline-primary">
+                        <i class="bi bi-pencil me-1"></i>编辑
+                    </a>
+                    <form method="post" action="{% url 'workflow_delete' workflow.pk %}" onsubmit="return confirm('确定要删除吗？');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger w-100">
+                            <i class="bi bi-trash me-1"></i>删除
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>进度时间线</h6>
+            </div>
+            <div class="card-body">
+                <ul class="timeline">
+                    <li class="timeline-item">
+                        <div class="timeline-marker bg-primary"></div>
+                        <div class="timeline-content">
+                            <h6 class="mb-0">流程发起</h6>
+                            <small class="text-muted">{{ workflow.initiated_at|date:"Y-m-d H:i" }}</small>
+                        </div>
+                    </li>
+                    {% for step in steps %}
+                        {% if step.status == 'APPROVED' or step.status == 'REJECTED' %}
+                        <li class="timeline-item">
+                            <div class="timeline-marker bg-{% if step.status == 'APPROVED' %}success{% else %}danger{% endif %}"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-0">{{ step.step_name }} - {{ step.get_status_display }}</h6>
+                                <small class="text-muted">{{ step.approved_at|date:"Y-m-d H:i" }}</small>
+                            </div>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    {% if workflow.status == 'COMPLETED' %}
+                    <li class="timeline-item">
+                        <div class="timeline-marker bg-success"></div>
+                        <div class="timeline-content">
+                            <h6 class="mb-0">流程完成</h6>
+                            <small class="text-muted">{{ workflow.completed_at|date:"Y-m-d H:i" }}</small>
+                        </div>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function approveWorkflow(pk) {
+    const comments = document.querySelector('textarea[name="comments"]').value;
+    fetch('/api/v1/workflows/workflows/' + pk + '/approve/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value
+        },
+        body: JSON.stringify({ comments: comments })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('审批通过！');
+            location.reload();
+        } else {
+            alert('错误: ' + (data.error || '操作失败'));
+        }
+    })
+    .catch(error => {
+        alert('请求失败: ' + error);
+    });
+}
+
+function rejectWorkflow(pk) {
+    const comments = document.querySelector('textarea[name="comments"]').value;
+    if (!comments) {
+        alert('拒绝时必须填写意见');
+        return;
+    }
+    fetch('/api/v1/workflows/workflows/' + pk + '/reject/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value
+        },
+        body: JSON.stringify({ comments: comments })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('审批已拒绝！');
+            location.reload();
+        } else {
+            alert('错误: ' + (data.error || '操作失败'));
+        }
+    })
+    .catch(error => {
+        alert('请求失败: ' + error);
+    });
+}
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.timeline {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.timeline-item {
+    position: relative;
+    padding-left: 30px;
+    padding-bottom: 20px;
+}
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+.timeline-marker {
+    position: absolute;
+    left: 0;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+.timeline-item:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 20px;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+.workflow-steps .card {
+    transition: all 0.2s ease;
+}
+.workflow-steps .card:hover {
+    transform: translateX(5px);
+}
+</style>
+{% endblock %}

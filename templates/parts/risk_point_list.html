@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}风险点管理{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'risk_point_list' %}">风险点</a></li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-exclamation-circle me-2"></i>风险点管理</h2>
+        {% if can_add %}
+        <a href="{% url 'risk_point_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg"></i> 新建风险点
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- 筛选器 -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <select name="part" class="form-select">
+                        <option value="">全部零件</option>
+                        {% for part in available_parts %}
+                        <option value="{{ part.pk }}" {% if request.GET.part == part.pk|stringformat:'s' %}selected{% endif %}>
+                            {{ part.part_number }} - {{ part.part_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="severity" class="form-select">
+                        <option value="">全部严重程度</option>
+                        <option value="CRITICAL" {% if request.GET.severity == 'CRITICAL' %}selected{% endif %}>严重</option>
+                        <option value="MAJOR" {% if request.GET.severity == 'MAJOR' %}selected{% endif %}>重要</option>
+                        <option value="MINOR" {% if request.GET.severity == 'MINOR' %}selected{% endif %}>次要</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select name="category" class="form-select">
+                        <option value="">全部类别</option>
+                        <option value="DIMENSION" {% if request.GET.category == 'DIMENSION' %}selected{% endif %}>尺寸风险</option>
+                        <option value="MATERIAL" {% if request.GET.category == 'MATERIAL' %}selected{% endif %}>材料风险</option>
+                        <option value="PROCESS" {% if request.GET.category == 'PROCESS' %}selected{% endif %}>工艺风险</option>
+                        <option value="ASSEMBLY" {% if request.GET.category == 'ASSEMBLY' %}selected{% endif %}>装配风险</option>
+                        <option value="QUALITY" {% if request.GET.category == 'QUALITY' %}selected{% endif %}>质量风险</option>
+                        <option value="SAFETY" {% if request.GET.category == 'SAFETY' %}selected{% endif %}>安全风险</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-search"></i> 筛选
+                    </button>
+                    <a href="{% url 'risk_point_list' %}" class="btn btn-outline-secondary">重置</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 列表 -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>风险编号</th>
+                            <th>风险名称</th>
+                            <th>风险类别</th>
+                            <th>严重程度</th>
+                            <th>发生概率</th>
+                            <th>零件</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for risk in risk_points %}
+                        <tr>
+                            <td><strong>{{ risk.risk_id }}</strong></td>
+                            <td>{{ risk.risk_name|truncatechars:30 }}</td>
+                            <td>{{ risk.risk_category|default:"-" }}</td>
+                            <td>
+                                {% if risk.severity == 'CRITICAL' %}
+                                <span class="badge bg-danger">严重</span>
+                                {% elif risk.severity == 'MAJOR' %}
+                                <span class="badge bg-warning">重要</span>
+                                {% else %}
+                                <span class="badge bg-secondary">次要</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ risk.probability|floatformat:2|default:"-" }}</td>
+                            <td>
+                                {% if risk.part %}
+                                <a href="{% url 'part_detail' risk.part.pk %}">{{ risk.part.part_number }}</a>
+                                {% else %}-{% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'risk_point_detail' risk.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'risk_point_edit' risk.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-4">
+                                暂无风险点
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

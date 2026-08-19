@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}{{ sop.document_title }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'sop_list' %}">SOP文档</a></li>
+<li class="breadcrumb-item active">{{ sop.document_number }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-file-earmark-text me-2"></i>{{ sop.document_title }}</h2>
+            <small class="text-muted">{{ sop.document_number }} | 版本 {{ sop.version }}</small>
+        </div>
+        <div>
+            <a href="{% url 'sop_edit' sop.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> 编辑
+            </a>
+            <a href="{% url 'sop_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> 返回
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧信息 -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>基本信息</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>文档编号</th>
+                            <td>{{ sop.document_number }}</td>
+                        </tr>
+                        <tr>
+                            <th>文档类型</th>
+                            <td>
+                                {% if sop.document_type == 'SOP' %}标准操作程序
+                                {% elif sop.document_type == 'WORK_INSTRUCTION' %}作业指导书
+                                {% elif sop.document_type == 'INSPECTION_GUIDE' %}检验指导书
+                                {% elif sop.document_type == 'CONTROL_PLAN' %}控制计划
+                                {% elif sop.document_type == 'INTERNAL_GUIDE' %}内部指导书
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>版本</th>
+                            <td>{{ sop.version }}</td>
+                        </tr>
+                        <tr>
+                            <th>状态</th>
+                            <td>
+                                {% if sop.status == 'PUBLISHED' %}
+                                <span class="badge bg-success">已发布</span>
+                                {% elif sop.status == 'APPROVED' %}
+                                <span class="badge bg-primary">已批准</span>
+                                {% elif sop.status == 'REVIEW' %}
+                                <span class="badge bg-warning">审核中</span>
+                                {% elif sop.status == 'OBSOLETE' %}
+                                <span class="badge bg-secondary">已作废</span>
+                                {% else %}
+                                <span class="badge bg-light text-dark">草稿</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>关联零件</th>
+                            <td>
+                                {% if sop.part %}
+                                <a href="{% url 'part_detail' sop.part.pk %}">{{ sop.part.part_number }}</a>
+                                {% else %}-{% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>生效日期</th>
+                            <td>{{ sop.effective_date|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>创建人</th>
+                            <td>{{ sop.created_by|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>创建时间</th>
+                            <td>{{ sop.created_at|date:"Y-m-d H:i" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧内容 -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-file-text me-2"></i>文档内容</h5>
+                </div>
+                <div class="card-body">
+                    {% if sop.content %}
+                    <div style="white-space: pre-wrap;">{{ sop.content }}</div>
+                    {% else %}
+                    <p class="text-muted">暂无内容</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if sop.notes %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-sticky me-2"></i>备注</h5>
+                </div>
+                <div class="card-body">
+                    {{ sop.notes }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

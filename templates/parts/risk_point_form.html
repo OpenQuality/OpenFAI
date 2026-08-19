@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}编辑风险点{% else %}新建风险点{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'risk_point_list' %}">风险点</a></li>
+<li class="breadcrumb-item active">{% if object %}编辑{% else %}新建{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-exclamation-circle me-2"></i>{% if object %}编辑风险点{% else %}新建风险点{% endif %}</h2>
+        <a href="{% url 'risk_point_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 返回
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong>表单填写有误，请检查以下字段：</strong>
+                    <ul class="mb-0">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                            <li>{{ field.label }}：{{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">风险编号 <span class="text-danger">*</span></label>
+                        <input type="text" name="risk_id" class="form-control" required
+                               value="{{ form.risk_id.value|default:'' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">风险名称 <span class="text-danger">*</span></label>
+                        <input type="text" name="risk_name" class="form-control" required
+                               value="{{ form.risk_name.value|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">风险类别</label>
+                        <select name="risk_category" class="form-select">
+                            <option value="">-- 选择类别 --</option>
+                            <option value="DIMENSION" {% if form.risk_category.value == 'DIMENSION' %}selected{% endif %}>尺寸风险</option>
+                            <option value="MATERIAL" {% if form.risk_category.value == 'MATERIAL' %}selected{% endif %}>材料风险</option>
+                            <option value="PROCESS" {% if form.risk_category.value == 'PROCESS' %}selected{% endif %}>工艺风险</option>
+                            <option value="ASSEMBLY" {% if form.risk_category.value == 'ASSEMBLY' %}selected{% endif %}>装配风险</option>
+                            <option value="QUALITY" {% if form.risk_category.value == 'QUALITY' %}selected{% endif %}>质量风险</option>
+                            <option value="SAFETY" {% if form.risk_category.value == 'SAFETY' %}selected{% endif %}>安全风险</option>
+                            <option value="OTHER" {% if form.risk_category.value == 'OTHER' %}selected{% endif %}>其他</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">关联零件</label>
+                        <select name="part" class="form-select">
+                            <option value="">-- 选择零件 --</option>
+                            {% for part in parts %}
+                            <option value="{{ part.pk }}" {% if form.part.value|stringformat:"s" == part.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ part.part_number }} - {{ part.part_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">严重程度</label>
+                        <select name="severity" class="form-select">
+                            <option value="CRITICAL" {% if form.severity.value == 'CRITICAL' %}selected{% endif %}>严重</option>
+                            <option value="MAJOR" {% if form.severity.value == 'MAJOR' %}selected{% endif %}>重要</option>
+                            <option value="MINOR" {% if form.severity.value == 'MINOR' %}selected{% endif %}>次要</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">发生概率 (0-1)</label>
+                        <input type="number" step="0.01" min="0" max="1" name="probability" class="form-control"
+                               value="{{ form.probability.value|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">风险描述 <span class="text-danger">*</span></label>
+                    <textarea name="description" class="form-control" rows="3" required>{{ form.description.value|default:'' }}</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">预防措施</label>
+                    <textarea name="prevention_measures" class="form-control" rows="3">{{ form.prevention_measures.value|default:'' }}</textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">纠正措施</label>
+                    <textarea name="correction_measures" class="form-control" rows="3">{{ form.correction_measures.value|default:'' }}</textarea>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

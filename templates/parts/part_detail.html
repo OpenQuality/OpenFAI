@@ -1,0 +1,964 @@
+{% extends 'base.html' %}
+
+{% block title %}零件详情 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'part_list' %}">零件管理</a></li>
+<li class="breadcrumb-item active">{{ part.part_number }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ part.part_name }}</h2>
+        <p class="text-muted mb-0">{{ part.part_number }} | Rev.{{ part.revision }}</p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <span class="badge bg-{% if part.status == 'ACTIVE' %}success{% elif part.status == 'PENDING' %}warning{% else %}secondary{% endif %} fs-6">
+            {{ part.get_status_display }}
+        </span>
+        <a href="{% url 'drawing_ocr' part.pk %}" class="btn btn-outline-success btn-sm" title="图纸识别（气泡图）">
+            <i class="bi bi-cpu me-1"></i>识别
+        </a>
+        <a href="{% url 'part_edit' part.pk %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>编辑
+        </a>
+        <form method="post" action="{% url 'part_delete' part.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除这个零件吗？此操作不可恢复！');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">
+                <i class="bi bi-trash me-1"></i>删除
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <!-- 基本信息 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>产品基本信息
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">零件编号</label>
+                        <p class="mb-0 fw-bold">{{ part.part_number }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">零件名称</label>
+                        <p class="mb-0">{{ part.part_name }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">版本</label>
+                        <p class="mb-0">Rev.{{ part.revision }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">客户</label>
+                        <p class="mb-0">{{ part.customer|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">客户零件编号</label>
+                        <p class="mb-0">{{ part.customer_part_number|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">材料</label>
+                        <p class="mb-0">{{ part.material|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">表面处理</label>
+                        <p class="mb-0">{{ part.surface_treatment|default:"-" }}</p>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <label class="text-muted small">描述</label>
+                        <p class="mb-0">{{ part.description|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 产品生产信息 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-box-seam me-2"></i>产品生产信息
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="text-muted small">批次/序列号</label>
+                        <p class="mb-0 fw-bold">{{ part.batch_serial_number|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="text-muted small">订单号</label>
+                        <p class="mb-0">{{ part.order_number|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="text-muted small">生产数量</label>
+                        <p class="mb-0">{{ part.production_quantity|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="text-muted small">首件数量</label>
+                        <p class="mb-0">{{ part.fai_quantity|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">单位/部门</label>
+                        <p class="mb-0">{{ part.department|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">操作者</label>
+                        <p class="mb-0">{{ part.operator|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 文件管理 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-files me-2"></i>文件管理</span>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#uploadFileModal">
+                        <i class="bi bi-upload me-1"></i>上传文件
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>文件类型</th>
+                                <th>文件名</th>
+                                <th>大小</th>
+                                <th>识别状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attachmentTableBody">
+                            {# 显示PartAttachment中的文件 #}
+                            {% for attachment in part.attachments.all %}
+                            <tr data-id="{{ attachment.id }}">
+                                <td>
+                                    <span class="badge bg-{% if attachment.file_type == 'PDF' %}danger{% elif attachment.file_type == 'IMAGE' %}info{% elif attachment.file_type == 'CAD' %}primary{% else %}secondary{% endif %}">
+                                        {{ attachment.get_file_type_display }}
+                                    </span>
+                                </td>
+                                <td>{{ attachment.file_name }}</td>
+                                <td>{{ attachment.file_size|filesizeformat }}</td>
+                                <td>
+                                    <span class="badge bg-{% if attachment.ocr_status == 'COMPLETED' %}success{% elif attachment.ocr_status == 'PROCESSING' %}warning{% elif attachment.ocr_status == 'FAILED' %}danger{% else %}light text-dark{% endif %}">
+                                        {{ attachment.get_ocr_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ attachment.file.url }}" class="btn btn-outline-primary" download title="下载">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        {% if attachment.file_type == 'CAD' or attachment.file_type == 'MODEL_3D' %}
+                                        <button class="btn btn-outline-success btn-sm" title="CAD/3D格式不支持识别" disabled>
+                                            <i class="bi bi-cpu"></i>
+                                        </button>
+                                        {% else %}
+                                        <a href="{% url 'drawing_ocr' part.pk %}" class="btn btn-outline-success btn-sm" title="图纸识别（气泡图）">
+                                            <i class="bi bi-cpu"></i>
+                                        </a>
+                                        {% endif %}
+                                        <button class="btn btn-outline-danger" onclick="deleteAttachment('{{ attachment.id }}')" title="删除">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            
+                            {# 显示旧字段中的文件（pdf_file, drawing_file, cad_file, model_3d_file） #}
+                            {% with legacy_files=part.get_all_files %}
+                            {% for file in legacy_files %}
+                            <tr data-legacy="true">
+                                <td>
+                                    <span class="badge bg-{% if file.type == 'pdf' %}danger{% elif file.type == 'drawing' %}info{% elif file.type == 'cad' %}primary{% else %}warning{% endif %}">
+                                        {% if file.type == 'pdf' %}PDF文档
+                                        {% elif file.type == 'drawing' %}图片文件
+                                        {% elif file.type == 'cad' %}CAD文件
+                                        {% else %}3D模型{% endif %}
+                                    </span>
+                                </td>
+                                <td>{{ file.name }}</td>
+                                <td>{{ file.size|filesizeformat }}</td>
+                                <td>
+                                    {% if file.ocr_status == 'COMPLETED' %}
+                                    <span class="badge bg-success">识别成功</span>
+                                    {% elif file.ocr_status == 'PROCESSING' %}
+                                    <span class="badge bg-warning">识别中...</span>
+                                    {% elif file.ocr_status == 'FAILED' %}
+                                    <span class="badge bg-danger">识别失败</span>
+                                    {% elif file.ocr_status == 'N/A' %}
+                                    <span class="badge bg-secondary">不支持</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">待识别</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ file.url }}" class="btn btn-outline-primary" download title="下载">
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        {% if file.type == 'pdf' or file.type == 'drawing' %}
+                                        <a href="{% url 'drawing_ocr' part.pk %}" class="btn btn-outline-success btn-sm" title="图纸识别（气泡图）">
+                                            <i class="bi bi-cpu"></i>
+                                        </a>
+                                        {% elif file.type == 'cad' %}
+                                        <button class="btn btn-outline-success btn-sm" title="CAD格式需先转为PDF/图片" disabled>
+                                            <i class="bi bi-cpu"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-outline-danger" onclick="alert('文件无法直接删除，请编辑零件')" title="删除">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% endwith %}
+                            
+                            {% if not part.attachments.all and not part.get_all_files %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                                    暂无上传文件
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- OCR识别结果 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <span><i class="bi bi-diagram-3 me-2"></i>OCR识别结果</span>
+            </div>
+            <div class="card-body p-0">
+                {% if extractions %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>识别时间</th>
+                                <th>来源文件</th>
+                                <th>状态</th>
+                                <th>尺寸数量</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for extraction in extractions %}
+                            <tr>
+                                <td>{{ extraction.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ extraction.extraction_data.source_file|default:"未知" }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if extraction.status == 'COMPLETED' %}success{% elif extraction.status == 'PROCESSING' %}warning{% else %}danger{% endif %}">
+                                        {{ extraction.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{% if extraction.dimensions.count > 0 %}{{ extraction.dimensions.count }}{% else %}{{ extraction.extraction_data.dimensions|length|default:0 }}{% endif %}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#extractionModal" data-id="{{ extraction.id }}" title="查看详情">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-outline-success" onclick="createPlanFromExtraction('{{ extraction.id }}')" title="创建检验计划">
+                                            <i class="bi bi-clipboard-plus"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger" onclick="deleteExtraction('{{ extraction.id }}')" title="删除">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        点击 <i class="bi bi-clipboard-plus"></i> 可从识别结果创建检验计划
+                    </small>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                    <p class="mb-0">暂无识别记录</p>
+                    <small class="text-muted">点击"去识别"进行图纸识别</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <!-- 操作面板 -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-lightning me-2"></i>快捷操作</span>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#uploadFileModal">
+                    <i class="bi bi-upload me-1"></i>上传文件
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- 工作流程指引 -->
+                <div class="workflow-steps">
+                    <div class="d-flex align-items-center py-2 border-bottom">
+                        <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;font-size:14px;">1</span>
+                        <span class="ms-3 fw-medium">上传图纸</span>
+                        <button class="btn btn-sm btn-link ms-auto p-0" data-bs-toggle="modal" data-bs-target="#uploadFileModal">
+                            <i class="bi bi-upload"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="d-flex align-items-center py-2 border-bottom">
+                        <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;font-size:14px;">2</span>
+                        <span class="ms-3 fw-medium">图纸识别（气泡图）</span>
+                        {# 检查是否有可用于OCR的文件：PartAttachment + 旧字段 #}
+                        {% with has_ocr_attachments=part.attachments.all|length %}
+                        {% with has_legacy_ocr=part.get_all_files|length %}
+                        {% if part.attachments.all or has_legacy_ocr %}
+                        <a href="{% url 'drawing_ocr' part.pk %}" class="btn btn-sm btn-link ms-auto p-0">
+                            <i class="bi bi-cpu"></i>
+                        </a>
+                        {% else %}
+                        <span class="text-muted ms-auto small">需先上传</span>
+                        {% endif %}
+                        {% endwith %}
+                        {% endwith %}
+                    </div>
+                    
+                    <div class="d-flex align-items-center py-2 border-bottom">
+                        <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;font-size:14px;">3</span>
+                        <span class="ms-3 fw-medium">创建检验计划</span>
+                        <a href="{% url 'plan_create' %}?part={{ part.pk }}" class="btn btn-sm btn-link ms-auto p-0">
+                            <i class="bi bi-clipboard-plus"></i>
+                        </a>
+                    </div>
+                    
+                    <div class="d-flex align-items-center py-2 border-bottom">
+                        <span class="badge bg-primary rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;font-size:14px;">4</span>
+                        <span class="ms-3 fw-medium">录入测量数据</span>
+                        {% if part.inspection_plans.exists %}
+                        <a href="{% url 'batch_create' %}?plan={{ part.inspection_plans.first.pk }}" class="btn btn-sm btn-link ms-auto p-0">
+                            <i class="bi bi-rulers"></i>
+                        </a>
+                        {% else %}
+                        <span class="text-muted ms-auto small">需先创建计划</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex align-items-center py-2">
+                        <span class="badge bg-success rounded-circle d-flex align-items-center justify-content-center" style="width:28px;height:28px;font-size:14px;">5</span>
+                        <span class="ms-3 fw-medium">生成报告</span>
+                        <button class="btn btn-sm btn-link ms-auto p-0" onclick="generateReport('{{ part.pk }}')">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 相关检验计划 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clipboard-check me-2"></i>相关检验计划</span>
+                <a href="{% url 'plan_create' %}?part={{ part.pk }}" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-plus"></i>
+                </a>
+            </div>
+                    <i class="bi bi-plus"></i>
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for plan in part.inspection_plans.all %}
+                    <a href="{% url 'plan_detail' plan.pk %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">{{ plan.plan_number }}</h6>
+                            <span class="badge bg-{% if plan.status == 'ACTIVE' %}success{% else %}secondary{% endif %}">{{ plan.get_status_display }}</span>
+                        </div>
+                        <small class="text-muted">{{ plan.plan_name }}</small>
+                    </a>
+                    {% empty %}
+                    <div class="text-center text-muted py-4">
+                        <small>暂无检验计划</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload File Modal -->
+<div class="modal fade" id="uploadFileModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传文件</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="uploadFileForm" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3" id="fileTypeTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active text-dark" id="pdf-tab" data-bs-toggle="tab" data-bs-target="#pdf" type="button" role="tab">PDF文档</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link text-dark" id="image-tab" data-bs-toggle="tab" data-bs-target="#image" type="button" role="tab">图片文件</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link text-dark" id="cad-tab" data-bs-toggle="tab" data-bs-target="#cad" type="button" role="tab">CAD文件</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="fileTypeTabContent">
+                        <div class="tab-pane fade show active" id="pdf" role="tabpanel">
+                            <div class="mb-3">
+                                <label class="form-label">选择PDF文档 (支持多文件)</label>
+                                <input type="file" class="form-control" name="pdf_files" id="pdfFileInput" accept=".pdf,.PDF" multiple>
+                                <div class="form-text">
+                                    <span class="text-success"><i class="bi bi-check-circle me-1"></i>支持OCR识别</span>
+                                    <br>格式: PDF
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="image" role="tabpanel">
+                            <div class="mb-3">
+                                <label class="form-label">选择图片文件 (支持多文件)</label>
+                                <input type="file" class="form-control" name="image_files" id="imageFileInput" accept=".png,.PNG,.jpg,.jpeg,.JPG,.JPEG,.bmp,.BMP,.gif,.GIF,.tiff,.TIFF" multiple>
+                                <div class="form-text">
+                                    <span class="text-success"><i class="bi bi-check-circle me-1"></i>支持OCR识别</span>
+                                    <br>格式: PNG, JPG, BMP, GIF, TIFF
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="cad" role="tabpanel">
+                            <div class="mb-3">
+                                <label class="form-label">选择CAD文件 (支持多文件)</label>
+                                <input type="file" class="form-control" name="cad_files" id="cadFileInput" accept=".SLDPRT,.CATPART,.PRT,.DWG,.DXF,.stp,.step,.STP,.STEP,.iges,.IGES,.stl,.STL,.obj,.OBJ,.ply,.PLY" multiple>
+                                <div class="form-text">
+                                    <span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>仅存储，不支持解析</span>
+                                    <br>格式: SolidWorks, CATIA, NX, AutoCAD (DWG/DXF), STEP, IGES, STL, OBJ, PLY
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="part" value="{{ part.pk }}">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-1"></i>上传
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const csrfToken = document.querySelector('[name="csrfmiddlewaretoken"]').value;
+
+document.getElementById('uploadFileForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    
+    // 获取各个类型的文件（支持多文件）
+    const cadFiles = document.getElementById('cadFileInput').files;
+    const imageFiles = document.getElementById('imageFileInput').files;
+    const pdfFiles = document.getElementById('pdfFileInput').files;
+    
+    // 检查是否有文件
+    if (cadFiles.length === 0 && imageFiles.length === 0 && pdfFiles.length === 0) {
+        alert('请选择至少一个文件');
+        return;
+    }
+    
+    // 添加文件到 FormData
+    // 获取零件ID
+    const partInput = document.querySelector('input[name="part"]');
+    if (partInput && partInput.value) {
+        formData.append('part', partInput.value);
+    }
+    
+    for (let i = 0; i < pdfFiles.length; i++) {
+        formData.append('files', pdfFiles[i]);
+        formData.append('file_types', 'PDF');
+    }
+    for (let i = 0; i < imageFiles.length; i++) {
+        formData.append('files', imageFiles[i]);
+        formData.append('file_types', 'IMAGE');
+    }
+    for (let i = 0; i < cadFiles.length; i++) {
+        formData.append('files', cadFiles[i]);
+        // 根据扩展名判断是 CAD 还是 3D 模型
+        const ext = cadFiles[i].name.split('.').pop().toLowerCase();
+        const modelExts = ['stp', 'step', 'iges', 'igs', 'stl', 'obj', 'ply'];
+        const fileType = modelExts.includes(ext) ? 'MODEL_3D' : 'CAD';
+        formData.append('file_types', fileType);
+    }
+    
+    // 显示上传进度
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>上传中...';
+    
+    try {
+        const response = await fetch('/api/v1/parts/attachments/', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            alert('上传成功！共上传 ' + data.uploaded_count + ' 个文件');
+            location.reload();
+        } else {
+            // 显示详细错误信息
+            let errorMsg = data.error || '未知错误';
+            if (data.details && data.details.length > 0) {
+                errorMsg += '\n详情: ' + data.details.join(', ');
+            }
+            if (data.message) {
+                errorMsg += '\n' + data.message;
+            }
+            alert('上传失败: ' + errorMsg);
+        }
+    } catch (error) {
+        alert('上传失败: ' + error.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+});
+
+// OCR识别功能
+async function startOCR(fileType) {
+    // 如果没有传入fileType，从下拉框获取
+    if (!fileType) {
+        const select = document.getElementById('ocrFileSelect');
+        if (select) {
+            fileType = select.value;
+        } else {
+            alert('请选择要识别的文件');
+            return;
+        }
+    }
+    
+    // 更新状态为识别中
+    const statusEl = document.getElementById(fileType + '-status');
+    if (statusEl) {
+        statusEl.innerHTML = '<i class="bi bi-hourglass-split"></i> 识别中...';
+        statusEl.className = 'badge bg-warning';
+    }
+    
+    // 获取选择的模型
+    const modelSelect = document.getElementById('ocrModelSelect');
+    const model = modelSelect ? modelSelect.value : 'doubao-seed-1-8-251228';
+    
+    try {
+        const response = await fetch('/api/v1/parts/parts/{{ part.pk }}/ocr_drawing/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                file_type: fileType,
+                model: model
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // 更新状态为已识别
+            if (statusEl) {
+                statusEl.innerHTML = '<i class="bi bi-check-circle"></i> 已识别';
+                statusEl.className = 'badge bg-success';
+            }
+            
+            alert(`识别成功！\n来源文件: ${data.source_file}\n识别到 ${data.dimensions_count} 个尺寸`);
+            location.reload();
+        } else {
+            // 更新状态为失败
+            if (statusEl) {
+                statusEl.innerHTML = '<i class="bi bi-x-circle"></i> 识别失败';
+                statusEl.className = 'badge bg-danger';
+            }
+            alert('识别失败: ' + (data.error || '未知错误'));
+        }
+    } catch (error) {
+        // 更新状态为失败
+        if (statusEl) {
+            statusEl.innerHTML = '<i class="bi bi-x-circle"></i> 识别失败';
+            statusEl.className = 'badge bg-danger';
+        }
+        alert('识别失败: ' + error.message);
+    }
+}
+
+function generateReport(partId) {
+    // 检查是否有检验计划
+    const hasPlan = {{ part.inspection_plans.count|default:"0" }};
+    
+    if (hasPlan === 0) {
+        // 没有检验计划，提示先创建
+        if (confirm('该零件还没有检验计划，是否先进行图纸识别并创建检验计划？')) {
+            window.location.href = '/parts/' + partId + '/ocr/';
+        }
+        return;
+    }
+    
+    // 有检验计划，跳转到报告创建页面
+    window.location.href = '/reports/create/?part=' + partId;
+}
+
+// 删除识别结果
+async function deleteExtraction(extractionId) {
+    if (!confirm('确定要删除此识别结果吗？此操作不可恢复。')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/v1/parts/extractions/${extractionId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value
+            }
+        });
+        
+        if (response.ok) {
+            alert('识别结果已删除');
+            location.reload();
+        } else {
+            alert('删除失败');
+        }
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
+// 从识别结果创建检验计划
+async function createPlanFromExtraction(extractionId) {
+    if (!confirm('确定要从该识别结果创建检验计划吗？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/v1/parts/parts/{{ part.pk }}/create_inspection_plan/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name="csrfmiddlewaretoken"]').value
+            },
+            body: JSON.stringify({
+                plan_name: '{{ part.part_number }} 检验计划',
+                standard: 'AS9102'
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            alert(data.message);
+            window.location.href = data.redirect_url;
+        } else {
+            alert('创建失败: ' + (data.error || '未知错误'));
+        }
+    } catch (error) {
+        alert('创建失败: ' + error.message);
+    }
+}
+
+function parsePDF(partId) {
+    // 调用OCR识别PDF
+    startOCR('pdf');
+}
+
+// 附件OCR识别
+async function startAttachmentOCR(attachmentId) {
+    if (!confirm('确定要识别此文件吗？')) {
+        return;
+    }
+    
+    const row = document.querySelector(`tr[data-id="${attachmentId}"]`);
+    const statusCell = row.querySelector('td:nth-child(4)');
+    const originalStatus = statusCell.innerHTML;
+    
+    statusCell.innerHTML = '<span class="badge bg-warning"><span class="spinner-border spinner-border-sm"></span> 识别中...</span>';
+    
+    try {
+        const response = await fetch(`/api/v1/parts/attachments/${attachmentId}/ocr/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            statusCell.innerHTML = '<span class="badge bg-success"><i class="bi bi-check-circle"></i> 已识别</span>';
+            alert('识别成功！');
+            // 刷新页面以显示新的识别结果
+            location.reload();
+        } else {
+            statusCell.innerHTML = '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> 失败</span>';
+            alert('识别失败: ' + (data.error || '未知错误'));
+        }
+    } catch (error) {
+        statusCell.innerHTML = '<span class="badge bg-danger"><i class="bi bi-x-circle"></i> 失败</span>';
+        alert('识别失败: ' + error.message);
+    }
+}
+
+// 旧版上传文件的OCR识别
+document.querySelectorAll('.btn-ocr[data-url]').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const fileUrl = this.dataset.url;
+        const fileType = this.dataset.type;
+        const fileName = this.dataset.name;  // 获取原始文件名
+        
+        if (!confirm('确定要识别此文件吗？')) {
+            return;
+        }
+        
+        // 获取零件ID
+        const partId = '{{ part.pk }}';
+        
+        const originalHtml = this.innerHTML;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        this.disabled = true;
+        
+        try {
+            const response = await fetch('/api/v1/parts/ocr/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    file_url: fileUrl,
+                    file_type: fileType === 'pdf' ? 'PDF' : 'IMAGE',
+                    file_name: fileName,  // 传递原始文件名
+                    part_id: partId
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                alert('识别成功！共识别到 ' + (data.dimensions?.length || 0) + ' 个尺寸');
+                // 刷新页面以显示新的识别结果
+                location.reload();
+            } else {
+                alert('识别失败: ' + (data.error || '未知错误'));
+            }
+        } catch (error) {
+            alert('识别失败: ' + error.message);
+        } finally {
+            this.innerHTML = originalHtml;
+            this.disabled = false;
+        }
+    });
+});
+
+// CAD文件识别按钮 - 提示配置OCR引擎
+document.querySelectorAll('.btn-cad-ocr').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const fileName = this.dataset.name;
+        if (confirm(`CAD文件 "${fileName}" 需要配置OCR识别引擎才能识别。\n\n点击"确定"前往OCR引擎配置页面。`)) {
+            window.location.href = '/settings/ocr-engines/';
+        }
+    });
+});
+
+// 删除附件
+async function deleteAttachment(attachmentId) {
+    if (!confirm('确定要删除此附件吗？此操作不可恢复。')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/v1/parts/attachments/${attachmentId}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': csrfToken
+            }
+        });
+        
+        if (response.ok) {
+            // 从表格中移除该行
+            const row = document.querySelector(`tr[data-id="${attachmentId}"]`);
+            row.remove();
+            alert('附件已删除');
+        } else {
+            const data = await response.json();
+            alert('删除失败: ' + (data.error || '未知错误'));
+        }
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
+// 当前查看的识别结果数据
+let currentExtractionData = null;
+
+// 导出识别结果
+function exportExtraction() {
+    if (!currentExtractionData || !currentExtractionData.extraction_data || !currentExtractionData.extraction_data.dimensions) {
+        alert('没有可导出的数据');
+        return;
+    }
+    
+    const dimensions = currentExtractionData.extraction_data.dimensions;
+    if (dimensions.length === 0) {
+        alert('没有识别到尺寸数据');
+        return;
+    }
+    
+    // 生成CSV内容
+    const headers = ['序号', '尺寸编号', '尺寸名称', '理论值', '上公差', '下公差', '单位', '类型', '关键特性'];
+    const rows = dimensions.map((dim, index) => [
+        index + 1,
+        dim.id || '',
+        dim.name || '',
+        dim.nominal_value || '',
+        dim.upper_tolerance || 0,
+        dim.lower_tolerance || 0,
+        dim.unit || 'mm',
+        dim.dim_type || 'LINEAR',
+        dim.is_critical ? '是' : '否'
+    ]);
+    
+    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+    
+    // 创建下载
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `识别结果_${currentExtractionData.id}_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// 查看详情Modal功能
+document.addEventListener('DOMContentLoaded', function() {
+    // 绑定查看详情按钮事件
+    document.querySelectorAll('[data-bs-target="#extractionModal"]').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const extractionId = this.dataset.id;
+            try {
+                const response = await fetch(`/api/v1/parts/extractions/${extractionId}/`);
+                const data = await response.json();
+                
+                // 保存当前数据用于导出
+                currentExtractionData = data;
+                
+                // 填充Modal内容 - 兼容两种字段名格式
+                const modalBody = document.getElementById('extractionModalBody');
+                
+                // 优先从extraction_dimensions获取（Serializer新增的字段），其次从extraction_data.dimensions获取
+                let dimensions = data.extraction_dimensions || [];
+                if (!dimensions && data.extraction_data && data.extraction_data.dimensions) {
+                    dimensions = data.extraction_data.dimensions;
+                }
+                
+                if (dimensions && dimensions.length > 0) {
+                    let html = `
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>序号</th>
+                                        <th>尺寸名称</th>
+                                        <th>理论值</th>
+                                        <th>上公差</th>
+                                        <th>下公差</th>
+                                        <th>单位</th>
+                                        <th>类型</th>
+                                        <th>关键</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                    `;
+                    dimensions.forEach((dim, index) => {
+                        // 兼容两种字段名格式
+                        const nominalValue = dim.nominal_value !== undefined ? dim.nominal_value : (dim.nominal || '-');
+                        const upperTol = dim.upper_tolerance !== undefined ? dim.upper_tolerance : (dim.upper || 0);
+                        const lowerTol = dim.lower_tolerance !== undefined ? dim.lower_tolerance : (dim.lower || 0);
+                        const dimType = dim.dim_type || dim.type || 'LINEAR';
+                        
+                        html += `
+                            <tr>
+                                <td>${index + 1}</td>
+                                <td>${dim.name || '-'}</td>
+                                <td>${nominalValue}</td>
+                                <td>${upperTol}</td>
+                                <td>${lowerTol}</td>
+                                <td>${dim.unit || 'mm'}</td>
+                                <td>${dimType}</td>
+                                <td>${dim.is_critical ? '<span class="badge bg-danger">是</span>' : '否'}</td>
+                            </tr>
+                        `;
+                    });
+                    html += '</tbody></table></div>';
+                    modalBody.innerHTML = html;
+                } else {
+                    modalBody.innerHTML = '<p class="text-muted text-center">暂无识别数据</p>';
+                }
+            } catch (e) {
+                document.getElementById('extractionModalBody').innerHTML = 
+                    '<p class="text-danger text-center">加载失败: ' + e.message + '</p>';
+            }
+        });
+    });
+});
+</script>
+
+<!-- 解析详情Modal -->
+<div class="modal fade" id="extractionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-eye me-2"></i>解析结果详情</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="extractionModalBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="exportExtraction()">
+                    <i class="bi bi-download me-1"></i>导出
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

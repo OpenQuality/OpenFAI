@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}用户管理 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item active">用户管理</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-people me-2"></i>用户管理</h2>
+    <div>
+        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>返回
+        </a>
+    </div>
+</div>
+
+<!-- 搜索框 -->
+<div class="card mb-4">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-3">
+                <input type="text" class="form-control" name="search" value="{{ search }}" placeholder="搜索用户名、姓名或邮箱...">
+            </div>
+            <div class="col-md-2">
+                <select class="form-select" name="status">
+                    <option value="">全部状态</option>
+                    <option value="PENDING" {% if request.GET.status == 'PENDING' %}selected{% endif %}>待审核</option>
+                    <option value="APPROVED" {% if request.GET.status == 'APPROVED' %}selected{% endif %}>已审核</option>
+                    <option value="REJECTED" {% if request.GET.status == 'REJECTED' %}selected{% endif %}>已拒绝</option>
+                    <option value="SUSPENDED" {% if request.GET.status == 'SUSPENDED' %}selected{% endif %}>已停用</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search me-1"></i>搜索
+                </button>
+                <a href="{% url 'user_list' %}" class="btn btn-outline-secondary">重置</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 待审核提醒 -->
+{% if pending_count and pending_count > 0 %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    <strong>提醒：</strong>有 <span class="badge bg-danger">{{ pending_count }}</span> 个用户待审核
+    <a href="?status=PENDING" class="alert-link ms-2">立即查看</a>
+</div>
+{% endif %}
+
+<!-- 用户列表 -->
+<div class="card">
+    <div class="card-header bg-white">
+        <span><i class="bi bi-list me-2"></i>用户列表 ({{ users.count }}人)</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>用户名</th>
+                        <th>姓名</th>
+                        <th>邮箱</th>
+                        <th>部门</th>
+                        <th>角色</th>
+                        <th>审核状态</th>
+                        <th style="width: 150px;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user_obj in users %}
+                    <tr>
+                        <td>{{ user_obj.id }}</td>
+                        <td>
+                            <a href="{% url 'user_detail' user_obj.pk %}" class="fw-medium">
+                                {{ user_obj.username }}
+                            </a>
+                            {% if user_obj.is_superuser %}
+                            <span class="badge bg-danger ms-1">超管</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user_obj.last_name }}{{ user_obj.first_name }}</td>
+                        <td>{{ user_obj.email|default:"-" }}</td>
+                        <td>
+                            {% if user_obj.profile %}
+                            {{ user_obj.profile.department }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user_obj.profile %}
+                                {% for role in user_obj.profile.roles.all %}
+                                <span class="badge bg-{% if role.code == 'ADMIN' %}danger{% elif role.code == 'APPROVER' %}success{% elif role.code == 'REVIEWER' %}warning{% else %}primary{% endif %} me-1">
+                                    {{ role.name }}
+                                </span>
+                                {% empty %}
+                                <span class="text-muted">未分配</span>
+                                {% endfor %}
+                            {% else %}
+                            <span class="text-muted">未分配</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user_obj.is_superuser %}
+                            <span class="badge bg-success">超管</span>
+                            {% elif user_obj.is_active %}
+                            <span class="badge bg-success">已激活</span>
+                            {% else %}
+                            <span class="badge bg-secondary">已停用</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'user_detail' user_obj.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> 查看
+                            </a>
+                            <a href="{% url 'user_edit' user_obj.pk %}" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                            暂无用户数据
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 分页 -->
+{% if users.has_other_pages %}
+<div class="d-flex justify-content-center mt-4">
+    <nav>
+        <ul class="pagination">
+            {% if users.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ users.previous_page_number }}&search={{ search }}&status={{ request.GET.status }}">上一页</a>
+            </li>
+            {% endif %}
+            
+            {% for num in users.paginator.page_range %}
+            <li class="page-item {% if users.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}&search={{ search }}&status={{ request.GET.status }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            
+            {% if users.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ users.next_page_number }}&search={{ search }}&status={{ request.GET.status }}">下一页</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+{% endblock %}

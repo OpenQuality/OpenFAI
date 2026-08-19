@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Cp/Cpk过程能力分析{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'batch_list' %}">测量批次</a></li>
+<li class="breadcrumb-item active">Cp/Cpk分析</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 页面标题 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-graph-up me-2"></i>Cp/Cpk过程能力分析</h2>
+        <a href="{% url 'batch_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 返回测量批次
+        </a>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ cpk_stats.excellent }}</h3>
+                    <small>Cpk ≥ 1.67 (优秀)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ cpk_stats.good }}</h3>
+                    <small>1.33 ≤ Cpk < 1.67 (良好)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ cpk_stats.acceptable }}</h3>
+                    <small>1.0 ≤ Cpk < 1.33 (合格)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body text-center">
+                    <h3 class="mb-0">{{ cpk_stats.poor }}</h3>
+                    <small>Cpk < 1.0 (不合格)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 判定标准说明 -->
+    <div class="alert alert-info mb-4">
+        <h5><i class="bi bi-info-circle me-2"></i>Cpk 判定标准</h5>
+        <div class="row">
+            <div class="col-md-3">
+                <span class="badge bg-success fs-6">Cpk ≥ 1.67</span> 优秀 - 过程能力充足
+            </div>
+            <div class="col-md-3">
+                <span class="badge bg-primary fs-6">1.33 ≤ Cpk < 1.67</span> 良好 - 满足要求
+            </div>
+            <div class="col-md-3">
+                <span class="badge bg-warning fs-6">1.0 ≤ Cpk < 1.33</span> 合格 - 需要改进
+            </div>
+            <div class="col-md-3">
+                <span class="badge bg-danger fs-6">Cpk < 1.0</span> 不合格 - 需采取措施
+            </div>
+        </div>
+    </div>
+
+    <!-- Cpk趋势图 -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-line me-2"></i>Cpk/Cp趋势图</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="cpkChart" height="80"></canvas>
+        </div>
+    </div>
+
+    <!-- 数据列表 -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-table me-2"></i>统计分析明细</h5>
+        </div>
+        <div class="alert alert-warning rounded-0 mb-0 py-2 px-3 small">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            样本量低于30件时，Cp/Cpk在统计学上不足以代表稳定的过程能力，仅可作为首件检验阶段的参考指标。带<i class="bi bi-exclamation-triangle-fill text-warning mx-1"></i>标记的行样本量不足。
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>检验特性</th>
+                            <th>测量批次</th>
+                            <th>样本数</th>
+                            <th>平均值</th>
+                            <th>标准差</th>
+                            <th>Cp</th>
+                            <th>Cpk</th>
+                            <th>判定</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in statistics %}
+                        <tr>
+                            <td>
+                                <strong>{{ stat.characteristic.char_number }}</strong>
+                                <br><small class="text-muted">{{ stat.characteristic.name|truncatechars:20 }}</small>
+                            </td>
+                            <td>
+                                <a href="{% url 'batch_detail' stat.batch.pk %}">{{ stat.batch.batch_number }}</a>
+                            </td>
+                            <td>
+                                {{ stat.sample_count }}
+                                {% if stat.is_small_sample %}
+                                <i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="样本量小于30，Cp/Cpk仅供参考，不代表正式过程能力"></i>
+                                {% endif %}
+                            </td>
+                            <td>{{ stat.mean|floatformat:4 }}</td>
+                            <td>{{ stat.std_dev|floatformat:4 }}</td>
+                            <td>{{ stat.cp|floatformat:3|default:"-" }}</td>
+                            <td>
+                                <strong>{{ stat.cpk|floatformat:3|default:"-" }}</strong>
+                            </td>
+                            <td>
+                                {% if stat.cpk is None %}
+                                <span class="badge bg-secondary" title="{% if stat.characteristic.upper_tolerance is None and stat.characteristic.lower_tolerance is None %}该特性未设置公差，无法计算{% else %}标准差为0或数据不足，无法计算{% endif %}">N/A</span>
+                                {% elif stat.cpk >= 1.67 %}
+                                <span class="badge bg-success">优秀</span>
+                                {% elif stat.cpk >= 1.33 %}
+                                <span class="badge bg-primary">良好</span>
+                                {% elif stat.cpk >= 1.0 %}
+                                <span class="badge bg-warning">合格</span>
+                                {% else %}
+                                <span class="badge bg-danger">不合格</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-4">
+                                暂无统计数据，请先进行测量并保存数据
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取图表数据
+    const chartData = {{ chart_data|safe }};
+    
+    if (chartData.labels.length > 0) {
+        const ctx = document.getElementById('cpkChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [
+                    {
+                        label: 'Cpk',
+                        data: chartData.cpk,
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        tension: 0.1,
+                        fill: false
+                    },
+                    {
+                        label: 'Cp',
+                        data: chartData.cp,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        tension: 0.1,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Cp/Cpk 趋势分析'
+                    },
+                    annotation: {
+                        annotations: {
+                            line1: {
+                                type: 'line',
+                                yMin: 1.67,
+                                yMax: 1.67,
+                                borderColor: 'rgb(16, 185, 129)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                label: {
+                                    display: true,
+                                    content: '优秀线 (1.67)',
+                                    position: 'end'
+                                }
+                            },
+                            line2: {
+                                type: 'line',
+                                yMin: 1.33,
+                                yMax: 1.33,
+                                borderColor: 'rgb(59, 130, 246)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                label: {
+                                    display: true,
+                                    content: '良好线 (1.33)',
+                                    position: 'end'
+                                }
+                            },
+                            line3: {
+                                type: 'line',
+                                yMin: 1.0,
+                                yMax: 1.0,
+                                borderColor: 'rgb(245, 158, 11)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                label: {
+                                    display: true,
+                                    content: '合格线 (1.0)',
+                                    position: 'end'
+                                }
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Cpk / Cp 值'
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        document.getElementById('cpkChart').parentElement.innerHTML = 
+            '<p class="text-center text-muted py-5">暂无数据，请先进行测量</p>';
+    }
+});
+</script>
+{% endblock %}

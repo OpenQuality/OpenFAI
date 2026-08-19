@@ -1,0 +1,663 @@
+{% extends 'base.html' %}
+{% load math_filters %}
+
+{% block title %}统计分析 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li><li class="breadcrumb-item active">统计分析</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-bar-chart me-2"></i>统计分析</h2>
+    <div>
+        <span class="text-muted">数据趋势与深度分析</span>
+    </div>
+</div>
+
+<!-- 时间范围筛选 -->
+<div class="card mb-4">
+    <div class="card-body py-2">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <label class="form-label mb-0 me-2">时间范围：</label>
+            </div>
+            <div class="col-auto">
+                <select class="form-select form-select-sm" id="timeRange" onchange="updateCharts()">
+                    <option value="7">近7天</option>
+                    <option value="30" selected>近30天</option>
+                    <option value="90">近90天</option>
+                    <option value="365">近1年</option>
+                </select>
+            </div>
+            <div class="col-auto ms-auto">
+                <button class="btn btn-outline-primary btn-sm" onclick="exportReport()">
+                    <i class="bi bi-download me-1"></i>导出报告
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 核心指标卡片 -->
+<div class="row mb-4">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">项目完成率</p>
+                        <h3 class="mb-0 fw-bold">{% if total_projects > 0 %}{{ completed_projects|add:archived_projects }}/{{ total_projects }}{% else %}0/0{% endif %}</h3>
+                        <small class="text-success">{{ project_completion_rate }}%完成</small>
+                    </div>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded-circle p-3">
+                        <i class="bi bi-check-circle fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">平均项目周期</p>
+                        <h3 class="mb-0 fw-bold">{{ avg_project_duration }}</h3>
+                        <small class="text-muted">天</small>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success rounded-circle p-3">
+                        <i class="bi bi-clock fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">审批通过率</p>
+                        <h3 class="mb-0 fw-bold">
+                            {{ completed_workflows }}/{{ total_workflows }}
+                        </h3>
+                        <small class="text-success">{{ workflows_completed_rate }}%</small>
+                    </div>
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning rounded-circle p-3">
+                        <i class="bi bi-check2-square fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">报告发布率</p>
+                        <h3 class="mb-0 fw-bold">
+                            {{ published_reports }}/{{ total_reports }}
+                        </h3>
+                        <small class="text-info">{{ reports_published_rate }}%</small>
+                    </div>
+                    <div class="stat-icon bg-info bg-opacity-10 text-info rounded-circle p-3">
+                        <i class="bi bi-file-earmark-check fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 今日首件检验统计 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h5 class="mb-3"><i class="bi bi-calendar-check me-2 text-primary"></i>今日首件检验</h5>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">今日批次总数</p>
+                        <h3 class="mb-0 fw-bold text-primary">{{ today_batches }}</h3>
+                        <small class="text-muted">个批次</small>
+                    </div>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded-circle p-3">
+                        <i class="bi bi-collection fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">已完成</p>
+                        <h3 class="mb-0 fw-bold text-success">{{ today_completed }}</h3>
+                        <small class="text-muted">个批次</small>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success rounded-circle p-3">
+                        <i class="bi bi-check-circle fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">进行中</p>
+                        <h3 class="mb-0 fw-bold text-warning">{{ today_in_progress }}</h3>
+                        <small class="text-muted">个批次</small>
+                    </div>
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning rounded-circle p-3">
+                        <i class="bi bi-hourglass-split fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">不合格报告</p>
+                        <h3 class="mb-0 fw-bold text-danger">{{ total_ncr }}</h3>
+                        <small class="text-muted">份</small>
+                    </div>
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger rounded-circle p-3">
+                        <i class="bi bi-exclamation-triangle fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 合格率统计 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h5 class="mb-3"><i class="bi bi-speedometer2 me-2 text-success"></i>测量合格率分析</h5>
+    </div>
+    <div class="col-md-4 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">总测量次数</p>
+                        <h3 class="mb-0 fw-bold">{{ total_measurements }}</h3>
+                        <small class="text-muted">次</small>
+                    </div>
+                    <div class="stat-icon bg-secondary bg-opacity-10 text-secondary rounded-circle p-3">
+                        <i class="bi bi-rulers fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">合格数</p>
+                        <h3 class="mb-0 fw-bold text-success">{{ passed_measurements }}</h3>
+                        <small class="text-success">{{ pass_rate }}%</small>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success rounded-circle p-3">
+                        <i class="bi bi-check-circle fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">不合格数</p>
+                        <h3 class="mb-0 fw-bold text-danger">{{ failed_measurements }}</h3>
+                        <small class="text-danger">{{ fail_rate }}%</small>
+                    </div>
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger rounded-circle p-3">
+                        <i class="bi bi-x-circle fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cp/Cpk过程能力统计 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h5 class="mb-3"><i class="bi bi-graph-up me-2 text-info"></i>Cp/Cpk过程能力分析</h5>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">优秀 (Cpk≥1.67)</p>
+                        <h3 class="mb-0 fw-bold text-success">{{ cpk_excellent }}</h3>
+                        <small class="text-muted">项</small>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success rounded-circle p-3">
+                        <i class="bi bi-trophy fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">良好 (1.33≤Cpk<1.67)</p>
+                        <h3 class="mb-0 fw-bold text-primary">{{ cpk_good }}</h3>
+                        <small class="text-muted">项</small>
+                    </div>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary rounded-circle p-3">
+                        <i class="bi bi-star fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">合格 (1.0≤Cpk<1.33)</p>
+                        <h3 class="mb-0 fw-bold text-warning">{{ cpk_acceptable }}</h3>
+                        <small class="text-muted">项</small>
+                    </div>
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning rounded-circle p-3">
+                        <i class="bi bi-check2 fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="text-muted mb-1 small">不合格 (Cpk<1.0)</p>
+                        <h3 class="mb-0 fw-bold text-danger">{{ cpk_poor }}</h3>
+                        <small class="text-muted">项</small>
+                    </div>
+                    <div class="stat-icon bg-danger bg-opacity-10 text-danger rounded-circle p-3">
+                        <i class="bi bi-exclamation-circle fs-4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 图表区域 -->
+<div class="row mb-4">
+    <!-- 项目趋势图 -->
+    <div class="col-md-8 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center py-2">
+                <h5 class="mb-0"><i class="bi bi-graph-up me-2 text-primary"></i>项目与报告趋势</h5>
+            </div>
+            <div class="card-body" style="height: 220px; position: relative;">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 项目状态分布 -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white py-2">
+                <h5 class="mb-0"><i class="bi bi-pie-chart me-2 text-success"></i>项目状态分布</h5>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center" style="height: 220px; position: relative;">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 详细统计表格 -->
+<div class="row">
+    <!-- 各模块数据统计 -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-table me-2 text-info"></i>模块数据统计</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>模块</th>
+                            <th class="text-end">总数</th>
+                            <th class="text-end">活跃/完成</th>
+                            <th class="text-end">占比</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><i class="bi bi-folder text-primary me-2"></i>FAI项目</td>
+                            <td class="text-end fw-bold">{{ total_projects }}</td>
+                            <td class="text-end text-success">{{ in_progress_projects }}</td>
+                            <td class="text-end">
+                                <span class="badge bg-primary">{{ project_completion_rate }}%</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-box-seam text-success me-2"></i>零件管理</td>
+                            <td class="text-end fw-bold">{{ total_parts }}</td>
+                            <td class="text-end text-success">{{ parts_with_drawing }}</td>
+                            <td class="text-end">
+                                <span class="badge bg-success">{{ parts_drawing_rate }}%</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-clipboard-check text-warning me-2"></i>检验计划</td>
+                            <td class="text-end fw-bold">{{ total_plans }}</td>
+                            <td class="text-end text-success">{{ active_plans }}</td>
+                            <td class="text-end">
+                                <span class="badge bg-warning">{{ plans_active_rate }}%</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-rulers text-danger me-2"></i>测量批次</td>
+                            <td class="text-end fw-bold">{{ total_batches }}</td>
+                            <td class="text-end text-success">{{ completed_batches }}</td>
+                            <td class="text-end">
+                                <span class="badge bg-danger">{{ batches_completed_rate }}%</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-file-earmark-text text-info me-2"></i>检验报告</td>
+                            <td class="text-end fw-bold">{{ total_reports }}</td>
+                            <td class="text-end text-success">{{ published_reports }}</td>
+                            <td class="text-end">
+                                <span class="badge bg-info">{{ reports_published_rate }}%</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-diagram-3 text-secondary me-2"></i>审批流程</td>
+                            <td class="text-end fw-bold">{{ total_workflows }}</td>
+                            <td class="text-end text-success">{{ completed_workflows }}</td>
+                            <td class="text-end">
+                                <span class="badge bg-secondary">{{ workflows_completed_rate }}%</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 设备与校准状态 -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-hdd me-2 text-secondary"></i>设备与校准状态</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-4">
+                    <div class="col-4">
+                        <h2 class="text-primary">{{ total_equipment }}</h2>
+                        <p class="text-muted mb-0">设备总数</p>
+                    </div>
+                    <div class="col-4">
+                        <h2 class="text-success">{{ active_equipment }}</h2>
+                        <p class="text-muted mb-0">运行中</p>
+                    </div>
+                    <div class="col-4">
+                        <h2 class="text-danger">{{ calibration_due }}</h2>
+                        <p class="text-muted mb-0">即将校准</p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <h6 class="text-muted mb-3">报告状态分布</h6>
+                <div class="progress mb-2" style="height: 25px;">
+                    {% if total_reports > 0 %}
+                    <div class="progress-bar bg-secondary" style="width: {{ draft_reports_rate }}%;">
+                        草稿 {{ draft_reports }}
+                    </div>
+                    <div class="progress-bar bg-warning" style="width: {{ pending_reports_rate }}%;">
+                        待审 {{ pending_reports }}
+                    </div>
+                    <div class="progress-bar bg-success" style="width: {{ approved_reports_rate }}%;">
+                        已批 {{ approved_reports }}
+                    </div>
+                    <div class="progress-bar bg-info" style="width: {{ published_reports_rate }}%;">
+                        已发 {{ published_reports }}
+                    </div>
+                    {% else %}
+                    <div class="progress-bar bg-secondary" style="width: 100%;">暂无数据</div>
+                    {% endif %}
+                </div>
+                <div class="d-flex justify-content-between small text-muted">
+                    <span><span class="badge bg-secondary">&nbsp;</span> 草稿</span>
+                    <span><span class="badge bg-warning">&nbsp;</span> 待审</span>
+                    <span><span class="badge bg-success">&nbsp;</span> 已批准</span>
+                    <span><span class="badge bg-info">&nbsp;</span> 已发布</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 各产线首件完成情况和不合格原因分布 -->
+<div class="row mb-4">
+    <!-- 各产线首件完成情况 -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-bar-chart-steps me-2 text-primary"></i>各产线首件完成情况</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>产线/部门</th>
+                            <th class="text-end">总批次</th>
+                            <th class="text-end">已完成</th>
+                            <th class="text-end">进行中</th>
+                            <th class="text-end">完成率</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in line_stats %}
+                        <tr>
+                            <td>{{ line.department|default:"未分类" }}</td>
+                            <td class="text-end fw-bold">{{ line.total }}</td>
+                            <td class="text-end text-success">{{ line.completed }}</td>
+                            <td class="text-end text-warning">{{ line.in_progress }}</td>
+                            <td class="text-end">
+                                {% with rate=line.completed|default:0 %}
+                                <span class="badge {% if line.total > 0 and line.completed|div:line.total >= 0.8 %}bg-success{% elif line.total > 0 and line.completed|div:line.total >= 0.5 %}bg-warning{% else %}bg-danger{% endif %}">
+                                    {% if line.total > 0 %}{{ line.completed|div:line.total|multiply:100|floatformat:0 }}%{% else %}0%{% endif %}
+                                </span>
+                                {% endwith %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">暂无数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 不合格原因分布 -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-pie-chart me-2 text-danger"></i>不合格原因分布</h5>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>问题类型</th>
+                            <th class="text-end">数量</th>
+                            <th class="text-end">占比</th>
+                            <th>分布</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in ncr_by_type %}
+                        <tr>
+                            <td>
+                                {% if item.problem_type == 'DIMENSION' %}<span class="badge bg-danger">尺寸超差</span>
+                                {% elif item.problem_type == 'APPEARANCE' %}<span class="badge bg-warning">外观缺陷</span>
+                                {% elif item.problem_type == 'MATERIAL' %}<span class="badge bg-info">材料问题</span>
+                                {% elif item.problem_type == 'PROCESS' %}<span class="badge bg-primary">工艺问题</span>
+                                {% elif item.problem_type == 'ASSEMBLY' %}<span class="badge bg-secondary">装配问题</span>
+                                {% else %}<span class="badge bg-dark">其他</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold">{{ item.count }}</td>
+                            <td class="text-end">
+                                {% if total_ncr > 0 %}{{ item.count|div:total_ncr|multiply:100|floatformat:1 }}%{% else %}0%{% endif %}
+                            </td>
+                            <td style="width: 30%">
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar bg-danger" style="width: {% if total_ncr > 0 %}{{ item.count|div:total_ncr|multiply:100 }}{% else %}0{% endif %}%;"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">暂无数据</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 项目与报告趋势图
+const trendCtx = document.getElementById('trendChart').getContext('2d');
+const trendChart = new Chart(trendCtx, {
+    type: 'line',
+    data: {
+        labels: [{% for item in daily_projects %}'{{ item.date|date:"m-d" }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            label: '新建项目',
+            data: [{% for item in daily_projects %}{{ item.count }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+            borderColor: 'rgb(37, 99, 235)',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            tension: 0.3,
+            fill: true
+        }, {
+            label: '生成报告',
+            data: [{% for item in daily_reports %}{{ item.count }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+            borderColor: 'rgb(16, 185, 129)',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            tension: 0.3,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1
+                }
+            }
+        }
+    }
+});
+
+// 项目状态分布饼图
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+const statusChart = new Chart(statusCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['草稿', '进行中', '已完成', '已归档'],
+        datasets: [{
+            data: [{{ draft_projects }}, {{ in_progress_projects }}, {{ completed_projects }}, {{ archived_projects }}],
+            backgroundColor: [
+                'rgba(107, 114, 128, 0.8)',
+                'rgba(245, 158, 11, 0.8)',
+                'rgba(16, 185, 129, 0.8)',
+                'rgba(59, 130, 246, 0.8)'
+            ],
+            borderColor: [
+                'rgb(107, 114, 128)',
+                'rgb(245, 158, 11)',
+                'rgb(16, 185, 129)',
+                'rgb(59, 130, 246)'
+            ],
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+            }
+        }
+    }
+});
+
+function updateCharts() {
+    const days = document.getElementById('timeRange').value;
+    // 实际项目中这里会发请求重新加载数据
+    console.log('更新时间范围为: ' + days + '天');
+}
+
+function exportReport() {
+    // 导出PDF报告功能
+    window.print();
+}
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+@media print {
+    .sidebar, .topbar, .btn, select, button {
+        display: none !important;
+    }
+    .main-content {
+        margin: 0 !important;
+        padding: 20px !important;
+    }
+}
+</style>
+{% endblock %}

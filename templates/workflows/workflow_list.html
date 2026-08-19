@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}审批流程 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li>
+<li class="breadcrumb-item active">审批流程</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">审批流程</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'workflow_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>新建审批
+        </a>
+        <div class="btn-group">
+            <a href="{% url 'workflow_list' %}" class="btn btn-outline-secondary {% if not request.GET.status %}active{% endif %}">
+                全部
+            </a>
+            <a href="?status=IN_PROGRESS" class="btn btn-outline-primary {% if request.GET.status == 'IN_PROGRESS' %}active{% endif %}">
+                <i class="bi bi-clock me-1"></i>进行中
+            </a>
+            <a href="?status=PENDING" class="btn btn-outline-warning {% if request.GET.status == 'PENDING' %}active{% endif %}">
+                <i class="bi bi-hourglass me-1"></i>待处理
+            </a>
+            <a href="?status=COMPLETED" class="btn btn-outline-success {% if request.GET.status == 'COMPLETED' %}active{% endif %}">
+                <i class="bi bi-check-circle me-1"></i>已完成
+            </a>
+            <a href="?status=REJECTED" class="btn btn-outline-danger {% if request.GET.status == 'REJECTED' %}active{% endif %}">
+                <i class="bi bi-x-circle me-1"></i>已拒绝
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>流程类型</th>
+                        <th>关联对象</th>
+                        <th>当前步骤</th>
+                        <th>状态</th>
+                        <th>发起人</th>
+                        <th>发起时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for workflow in workflows %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-info">{{ workflow.get_workflow_type_display }}</span>
+                        </td>
+                        <td>
+                            {% if workflow.plan %}
+                            <a href="{% url 'plan_detail' workflow.plan.pk %}">{{ workflow.plan.plan_number }}</a>
+                            <small class="text-muted d-block">{{ workflow.plan.plan_name }}</small>
+                            {% elif workflow.report %}
+                            <a href="{% url 'report_detail' workflow.report.pk %}">{{ workflow.report.report_number }}</a>
+                            <small class="text-muted d-block">{{ workflow.report.title }}</small>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-secondary me-2">{{ workflow.current_step }} / {{ workflow.total_steps }}</span>
+                                <div class="progress" style="width: 100px; height: 6px;">
+                                    <div class="progress-bar bg-success" style="width: {% widthratio workflow.current_step workflow.total_steps 100 %}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if workflow.status == 'COMPLETED' %}success{% elif workflow.status == 'IN_PROGRESS' %}primary{% elif workflow.status == 'REJECTED' %}danger{% else %}warning{% endif %}">
+                                {{ workflow.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ workflow.initiated_by.username }}</td>
+                        <td>{{ workflow.initiated_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'workflow_detail' workflow.pk %}" class="btn btn-outline-primary" title="查看">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'workflow_edit' workflow.pk %}" class="btn btn-outline-success" title="编辑">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form method="post" action="{% url 'workflow_delete' workflow.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除吗？');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="删除">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            暂无审批流程
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

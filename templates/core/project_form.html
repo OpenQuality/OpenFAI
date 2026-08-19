@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}编辑项目{% else %}创建项目{% endif %} - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'project_list' %}">项目管理</a></li>
+<li class="breadcrumb-item active">{% if is_edit %}编辑项目{% else %}创建项目{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-{% if is_edit %}pencil{% else %}plus-circle{% endif %} me-2"></i>{% if is_edit %}编辑项目{% else %}创建新项目{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="id_project_name" class="form-label">项目名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="id_project_name" name="project_name" value="{% if object %}{{ object.project_name }}{% endif %}" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">状态</label>
+                            <select class="form-select" name="status">
+                                <option value="DRAFT" {% if object and object.status == 'DRAFT' %}selected{% endif %}>草稿</option>
+                                <option value="IN_PROGRESS" {% if object and object.status == 'IN_PROGRESS' %}selected{% endif %}>进行中</option>
+                                <option value="PENDING_REVIEW" {% if object and object.status == 'PENDING_REVIEW' %}selected{% endif %}>待审核</option>
+                                <option value="COMPLETED" {% if object and object.status == 'COMPLETED' %}selected{% endif %}>已完成</option>
+                                <option value="ARCHIVED" {% if object and object.status == 'ARCHIVED' %}selected{% endif %}>已归档</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="id_description" class="form-label">项目描述</label>
+                        <textarea class="form-control" id="id_description" name="description" rows="3">{% if object %}{{ object.description }}{% endif %}</textarea>
+                    </div>
+                    
+                    <!-- 关联信息 -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <i class="bi bi-link me-2"></i>关联信息
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="id_part" class="form-label">关联零件</label>
+                                    <select class="form-select" id="id_part" name="part">
+                                        <option value="">请选择零件</option>
+                                        {% for part in parts %}
+                                        <option value="{{ part.id }}" {% if object and object.part_id == part.id %}selected{% endif %}>
+                                            {{ part.part_number }} - {{ part.part_name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="id_inspection_plan" class="form-label">关联检验计划</label>
+                                    <select class="form-select" id="id_inspection_plan" name="inspection_plan">
+                                        <option value="">请选择检验计划</option>
+                                        {% for plan in plans %}
+                                        <option value="{{ plan.id }}" {% if object and object.inspection_plan_id == plan.id %}selected{% endif %}>
+                                            {{ plan.plan_number }} - {{ plan.plan_name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="id_start_date" class="form-label">开始日期</label>
+                            <input type="date" class="form-control" id="id_start_date" name="start_date" value="{% if object and object.start_date %}{{ object.start_date|date:'Y-m-d' }}{% endif %}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="id_target_date" class="form-label">目标日期</label>
+                            <input type="date" class="form-control" id="id_target_date" name="target_date" value="{% if object and object.target_date %}{{ object.target_date|date:'Y-m-d' }}{% endif %}">
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    {% if not is_edit %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        创建项目后将自动生成以下操作步骤：
+                        <ol class="mt-2 mb-0">
+                            <li>产品信息</li>
+                            <li>图纸导入</li>
+                            <li>OCR识别</li>
+                            <li>尺寸公差表</li>
+                            <li>测量数据</li>
+                            <li>统计分析</li>
+                            <li>报告生成</li>
+                            <li>审批流程</li>
+                        </ol>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'project_list' %}" class="btn btn-secondary">取消</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>{% if is_edit %}保存修改{% else %}创建项目{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

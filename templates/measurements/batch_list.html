@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+
+{% block title %}测量数据 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li>
+<li class="breadcrumb-item active">测量数据</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">测量数据</h2>
+    <div>
+        <a href="{% url 'batch_create' %}" class="btn btn-success">
+            <i class="bi bi-plus-circle me-2"></i>新建测量批次
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>批次号</th>
+                        <th>检验计划</th>
+                        <th>设备类型</th>
+                        <th>设备编号</th>
+                        <th>总测量</th>
+                        <th>通过</th>
+                        <th>失败</th>
+                        <th>状态</th>
+                        <th>测量时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for batch in batches %}
+                    <tr>
+                        <td><a href="{% url 'batch_detail' batch.pk %}"><strong>{{ batch.batch_number }}</strong></a></td>
+                        <td>{{ batch.plan.plan_number }}</td>
+                        <td>{{ batch.equipment_type }}</td>
+                        <td>{{ batch.equipment_id }}</td>
+                        <td>{{ batch.total_measurements }}</td>
+                        <td><span class="text-success">{{ batch.pass_count }}</span></td>
+                        <td><span class="text-danger">{{ batch.fail_count }}</span></td>
+                        <td>
+                            <span class="badge bg-{% if batch.status == 'COMPLETED' %}success{% elif batch.status == 'IN_PROGRESS' %}primary{% else %}secondary{% endif %}">
+                                {{ batch.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ batch.measured_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'batch_detail' batch.pk %}" class="btn btn-outline-primary" title="查看"><i class="bi bi-eye"></i></a>
+                                <a href="{% url 'batch_edit' batch.pk %}" class="btn btn-outline-success" title="编辑"><i class="bi bi-pencil"></i></a>
+                                <form method="post" action="{% url 'batch_delete' batch.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除吗？');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="删除"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            暂无测量数据
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- New Batch Modal -->
+<div class="modal fade" id="newBatchModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新建测量批次</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newBatchForm">
+                    <div class="mb-3">
+                        <label class="form-label">选择检验计划 *</label>
+                        <select class="form-select" name="plan" id="batchPlanSelect" required>
+                            <option value="">请选择检验计划</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">设备类型</label>
+                        <select class="form-select" name="equipment_type" id="equipmentType">
+                            <option value="CMM">三坐标测量机</option>
+                            <option value="MANUAL">手动测量</option>
+                            <option value="CALIPER">卡尺</option>
+                            <option value="MICROMETER">千分尺</option>
+                            <option value="OTHER">其他</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">设备编号</label>
+                        <input type="text" class="form-control" name="equipment_id" placeholder="如: CMM-001">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" name="notes" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="createBatch()">创建批次</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 获取CSRF Token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const csrftoken = getCookie('csrftoken');
+
+// 加载检验计划列表
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/v1/inspections/plans/')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('batchPlanSelect');
+            if (data.results) {
+                data.results.forEach(plan => {
+                    const option = document.createElement('option');
+                    option.value = plan.id;
+                    option.textContent = `${plan.plan_number} - ${plan.plan_name}`;
+                    select.appendChild(option);
+                });
+            } else if (data.length) {
+                data.forEach(plan => {
+                    const option = document.createElement('option');
+                    option.value = plan.id;
+                    option.textContent = `${plan.plan_number} - ${plan.plan_name}`;
+                    select.appendChild(option);
+                });
+            }
+        })
+        .catch(error => console.error('加载检验计划失败:', error));
+});
+
+// 创建测量批次
+function createBatch() {
+    const form = document.getElementById('newBatchForm');
+    const formData = new FormData(form);
+    const data = {};
+    formData.forEach((value, key) => {
+        if (value) data[key] = value;
+    });
+    
+    if (!data.plan) {
+        alert('请选择检验计划');
+        return;
+    }
+    
+    fetch('/api/v1/measurements/batches/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.id) {
+            alert('测量批次创建成功！');
+            window.location.href = `/api/v1/measurements/${data.id}/`;
+        } else {
+            alert('创建失败: ' + JSON.stringify(data));
+        }
+    })
+    .catch(error => {
+        alert('请求失败: ' + error);
+    });
+}
+</script>
+{% endblock %}

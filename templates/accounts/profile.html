@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+
+{% block title %}个人资料 - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">首页</a></li>
+<li class="breadcrumb-item active">个人资料</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <!-- 用户信息卡片 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-person-circle me-2"></i>用户信息
+            </div>
+            <div class="card-body text-center">
+                <div class="user-avatar-large mb-3">
+                    <i class="bi bi-person-fill" style="font-size: 4rem;"></i>
+                </div>
+                <h4>{{ user.get_full_name|default:user.username }}</h4>
+                <p class="text-muted">{{ user.email }}</p>
+                <span class="badge bg-primary">{{ user.is_staff|yesno:"管理员,普通用户" }}</span>
+            </div>
+        </div>
+        
+        <!-- 快捷操作 -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-lightning me-2"></i>快捷操作
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" onclick="showEditProfile()">
+                        <i class="bi bi-pencil me-2"></i>编辑资料
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="showChangePassword()">
+                        <i class="bi bi-key me-2"></i>修改密码
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <!-- 基本信息卡片 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>基本信息
+            </div>
+            <div class="card-body">
+                <form id="profileForm">
+                    {% csrf_token %}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">用户名</label>
+                            <input type="text" class="form-control" value="{{ user.username }}" disabled>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">邮箱</label>
+                            <input type="email" class="form-control" name="email" value="{{ user.email }}">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">姓名</label>
+                            <input type="text" class="form-control" name="first_name" value="{{ user.first_name }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">姓氏</label>
+                            <input type="text" class="form-control" name="last_name" value="{{ user.last_name }}">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>保存更改
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 员工信息卡片 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-building me-2"></i>员工信息
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">员工编号</label>
+                        <p class="mb-0 fw-bold">{{ profile.employee_id|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">部门</label>
+                        <p class="mb-0">{{ profile.department|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">职位</label>
+                        <p class="mb-0">{{ profile.position|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">电话</label>
+                        <p class="mb-0">{{ profile.phone|default:"-" }}</p>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="text-muted small">入职日期</label>
+                        <p class="mb-0">{{ profile.hire_date|date:"Y-m-d"|default:"-" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 活动记录 -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-clock-history me-2"></i>最近活动
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">登录系统</h6>
+                            <small class="text-muted">{{ user.last_login|date:"Y-m-d H:i"|default:"-" }}</small>
+                        </div>
+                        <small class="text-muted">最近一次登录</small>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">账号创建</h6>
+                            <small class="text-muted">{{ user.date_joined|date:"Y-m-d H:i" }}</small>
+                        </div>
+                        <small class="text-muted">账号注册时间</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 修改密码Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-key me-2"></i>修改密码</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="changePasswordForm">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">当前密码</label>
+                        <input type="password" class="form-control" name="old_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">新密码</label>
+                        <input type="password" class="form-control" name="new_password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">确认新密码</label>
+                        <input type="password" class="form-control" name="confirm_password" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">确认修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showChangePassword() {
+    new bootstrap.Modal(document.getElementById('changePasswordModal')).show();
+}
+
+function showEditProfile() {
+    // 滚动到表单
+    document.getElementById('profileForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+// 提交资料修改
+document.getElementById('profileForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/api/v1/accounts/profile/update/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            },
+            body: JSON.stringify({
+                email: formData.get('email'),
+                first_name: formData.get('first_name'),
+                last_name: formData.get('last_name')
+            })
+        });
+        
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert('资料更新成功！');
+            location.reload();
+        } else {
+            alert('更新失败: ' + (data.message || '未知错误'));
+        }
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    }
+});
+
+// 提交密码修改
+document.getElementById('changePasswordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const newPassword = formData.get('new_password');
+    const confirmPassword = formData.get('confirm_password');
+    
+    if (newPassword !== confirmPassword) {
+        alert('两次输入的密码不一致！');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/v1/accounts/change-password/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+            },
+            body: JSON.stringify({
+                old_password: formData.get('old_password'),
+                new_password: newPassword
+            })
+        });
+        
+        const data = await response.json();
+        if (data.status === 'success') {
+            alert('密码修改成功！');
+            bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+        } else {
+            alert('修改失败: ' + (data.message || '未知错误'));
+        }
+    } catch (e) {
+        alert('请求失败: ' + e.message);
+    }
+});
+</script>
+{% endblock %}

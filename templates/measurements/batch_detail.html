@@ -1,0 +1,506 @@
+{% extends 'base.html' %}
+
+{% block title %}测量批次详情 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'batch_list' %}">测量数据</a></li>
+<li class="breadcrumb-item active">{{ batch.batch_number }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">测量批次详情</h2>
+        <p class="text-muted mb-0">{{ batch.batch_number }} | {{ batch.plan.plan_name }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <span class="badge bg-{% if batch.status == 'COMPLETED' %}success{% elif batch.status == 'IN_PROGRESS' %}primary{% else %}secondary{% endif %} fs-6">
+            {{ batch.get_status_display }}
+        </span>
+        <a href="{% url 'batch_edit' batch.pk %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>编辑
+        </a>
+        <form method="post" action="{% url 'batch_delete' batch.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除这个测量批次吗？');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">
+                <i class="bi bi-trash me-1"></i>删除
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <!-- 统计概览 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon primary">
+                        <i class="bi bi-list-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ batch.total_measurements }}</h3>
+                        <p>总测量数</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon success">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ batch.pass_count }}</h3>
+                        <p>通过</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon danger">
+                        <i class="bi bi-x-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ batch.fail_count }}</h3>
+                        <p>失败</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-icon warning">
+                        <i class="bi bi-percent"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3>{{ batch.pass_rate }}%</h3>
+                        <p>合格率</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 手动录入测量数据 -->
+        {% if can_change and batch.status != 'COMPLETED' %}
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-plus-circle me-2"></i>手动录入测量数据
+            </div>
+            <div class="card-body">
+                <form id="measurementForm" class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">检验特性 <span class="text-danger">*</span></label>
+                        <select class="form-select" id="characteristicSelect" required>
+                            <option value="">选择检验特性</option>
+                            {% for char in characteristics %}
+                            <option value="{{ char.id }}" 
+                                    data-nominal="{{ char.nominal_value }}"
+                                    data-upper="{{ char.upper_tolerance|default_if_none:'' }}"
+                                    data-lower="{{ char.lower_tolerance|default_if_none:'' }}"
+                                    data-unit="{{ char.unit }}">
+                                {{ char.char_number }} - {{ char.char_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">理论值</label>
+                        <input type="text" class="form-control" id="nominalValue" readonly placeholder="选择特性后自动显示">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">样本号 <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="sampleNumber" required min="1" value="1">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">实测值 <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="measuredValue" required step="any" placeholder="输入实测值">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">备注</label>
+                        <input type="text" class="form-control" id="measurementNotes" placeholder="可选">
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>录入
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>重置
+                        </button>
+                    </div>
+                </form>
+                <div id="formMessage" class="mt-2" style="display: none;"></div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 批量录入（多行） -->
+        {% if can_change and batch.status != 'COMPLETED' %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-list-check me-2"></i>批量录入测量数据
+                <button type="button" class="btn btn-sm btn-outline-primary float-end" onclick="addMeasurementRow()">
+                    <i class="bi bi-plus"></i> 添加行
+                </button>
+            </div>
+            <div class="card-body">
+                <form id="batchMeasurementForm">
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0" id="batchTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 35%;">检验特性</th>
+                                    <th style="width: 15%;">样本号</th>
+                                    <th style="width: 15%;">实测值</th>
+                                    <th style="width: 30%;">备注</th>
+                                    <th style="width: 5%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="batchTableBody">
+                                <tr class="measurement-row">
+                                    <td>
+                                        <select class="form-select form-select-sm char-select" name="characteristic_id" required>
+                                            <option value="">选择特性</option>
+                                            {% for char in characteristics %}
+                                            <option value="{{ char.id }}" data-nominal="{{ char.nominal_value }}" data-unit="{{ char.unit }}">
+                                                {{ char.char_number }} - {{ char.char_name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" name="sample_number" min="1" value="1" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" class="form-control form-control-sm" name="measured_value" step="any" required>
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" name="notes" placeholder="可选">
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">
+                                            <i class="bi bi-x"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-upload me-1"></i>批量提交
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetBatchForm()">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>重置
+                        </button>
+                    </div>
+                    <div id="batchFormMessage" class="mt-2" style="display: none;"></div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 测量记录 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-table me-2"></i>测量记录
+                <span class="badge bg-secondary ms-2">{{ records.count }}</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>特性编号</th>
+                                <th>特性名称</th>
+                                <th>样本</th>
+                                <th>理论值</th>
+                                <th>实测值</th>
+                                <th>偏差</th>
+                                <th>状态</th>
+                                <th>时间</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in records %}
+                            <tr>
+                                <td><strong>{{ record.characteristic.char_number }}</strong></td>
+                                <td>{{ record.characteristic.char_name }}</td>
+                                <td>#{{ record.sample_number }}</td>
+                                <td>{{ record.characteristic.nominal_value }}</td>
+                                <td>{{ record.measured_value }}</td>
+                                <td class="{% if record.deviation > 0 %}text-success{% elif record.deviation < 0 %}text-danger{% else %}text-muted{% endif %}">
+                                    {{ record.deviation|default:"-" }}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if record.status == 'PASS' %}success{% elif record.status == 'FAIL' %}danger{% else %}secondary{% endif %}">
+                                        {{ record.get_status_display }}
+                                    </span>
+                                </td>
+                                <td><small>{{ record.measured_at|date:"m-d H:i" }}</small></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">暂无测量记录，请使用上方表单录入</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 统计分析 -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-graph-up me-2"></i>统计分析 (Cpk)
+            </div>
+            <div class="card-body p-0">
+                {% if statistics %}
+                <div class="alert alert-warning rounded-0 mb-0 py-2 px-3 small">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    样本量低于30件时，Cp/Cpk在统计学上不足以代表稳定的过程能力，仅可作为首件检验阶段的参考指标，不能等同于量产过程能力结论。
+                </div>
+                {% endif %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>特性编号</th>
+                                <th>样本数</th>
+                                <th>平均值</th>
+                                <th>标准差</th>
+                                <th>最小值</th>
+                                <th>最大值</th>
+                                <th>Cp</th>
+                                <th>Cpk</th>
+                                <th>评价</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in statistics %}
+                            <tr>
+                                <td><strong>{{ stat.characteristic.char_number }}</strong></td>
+                                <td>
+                                    {{ stat.sample_count }}
+                                    {% if stat.is_small_sample %}
+                                    <i class="bi bi-exclamation-triangle-fill text-warning ms-1" title="样本量较小，Cp/Cpk仅供参考"></i>
+                                    {% endif %}
+                                </td>
+                                <td>{{ stat.mean }}</td>
+                                <td>{{ stat.std_dev }}</td>
+                                <td>{{ stat.min_value }}</td>
+                                <td>{{ stat.max_value }}</td>
+                                {% if stat.characteristic.upper_tolerance is None and stat.characteristic.lower_tolerance is None %}
+                                <td>-</td>
+                                <td><span class="badge bg-secondary">-</span></td>
+                                <td><span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>未设置公差，无法判定</span></td>
+                                {% else %}
+                                <td>{{ stat.cp|default:"-" }}</td>
+                                <td>
+                                    <span class="badge bg-{% if stat.cpk >= 1.33 %}success{% elif stat.cpk >= 1.0 %}warning{% else %}danger{% endif %}">
+                                        {{ stat.cpk|default:"-" }}
+                                    </span>
+                                </td>
+                                <td>{{ stat.process_capability }}{% if stat.is_small_sample %}<span class="text-muted">（参考）</span>{% endif %}</td>
+                                {% endif %}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-4">暂无统计数据</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const batchId = '{{ batch.pk }}';
+const apiBase = '/api/v1/measurements';
+
+// 单条录入表单（批次已完成时表单不渲染，需判空）
+document.getElementById('measurementForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const charSelect = document.getElementById('characteristicSelect');
+    const charId = charSelect.value;
+    const sampleNumber = document.getElementById('sampleNumber').value;
+    const measuredValue = document.getElementById('measuredValue').value;
+    const notes = document.getElementById('measurementNotes').value;
+    const messageDiv = document.getElementById('formMessage');
+    
+    if (!charId || !sampleNumber || !measuredValue) {
+        showMessage(messageDiv, '请填写所有必填项', 'danger');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${apiBase}/batches/${batchId}/add_measurement/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                characteristic_id: charId,
+                sample_number: parseInt(sampleNumber),
+                measured_value: parseFloat(measuredValue),
+                notes: notes
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showMessage(messageDiv, `录入成功！实测值: ${data.deviation || measuredValue}, 状态: ${data.status_result}`, 'success');
+            clearForm();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showMessage(messageDiv, `录入失败: ${data.error || data.message || '未知错误'}`, 'danger');
+        }
+    } catch (error) {
+        showMessage(messageDiv, `网络错误: ${error.message}`, 'danger');
+    }
+});
+
+// 特性选择时显示理论值
+document.getElementById('characteristicSelect')?.addEventListener('change', function() {
+    const option = this.selectedOptions[0];
+    const nominalValue = document.getElementById('nominalValue');
+    
+    if (option && option.dataset.nominal) {
+        const upper = parseFloat(option.dataset.upper) || 0;
+        const lower = parseFloat(option.dataset.lower) || 0;
+        const nominal = option.dataset.nominal;
+        const unit = option.dataset.unit || '';
+        nominalValue.value = `${nominal} ${unit} (+${upper}/-${lower})`;
+    } else {
+        nominalValue.value = '';
+    }
+});
+
+// 批量录入表单
+document.getElementById('batchMeasurementForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const rows = document.querySelectorAll('.measurement-row');
+    const measurements = [];
+    
+    rows.forEach(row => {
+        const charId = row.querySelector('[name="characteristic_id"]').value;
+        const sampleNumber = row.querySelector('[name="sample_number"]').value;
+        const measuredValue = row.querySelector('[name="measured_value"]').value;
+        const notes = row.querySelector('[name="notes"]').value;
+        
+        if (charId && sampleNumber && measuredValue) {
+            measurements.push({
+                characteristic_id: charId,
+                sample_number: parseInt(sampleNumber),
+                measured_value: parseFloat(measuredValue),
+                notes: notes || ''
+            });
+        }
+    });
+    
+    if (measurements.length === 0) {
+        showMessage(document.getElementById('batchFormMessage'), '请至少填写一行数据', 'danger');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${apiBase}/batches/${batchId}/batch_upload/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ measurements: measurements })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.created_count > 0) {
+            const errorDetail = data.error_count > 0 ? `\n失败详情：${data.errors.join('；')}` : '';
+            showMessage(document.getElementById('batchFormMessage'),
+                `批量录入成功！共录入 ${data.created_count} 条${data.error_count > 0 ? `，失败 ${data.error_count} 条` : ''}${errorDetail}`,
+                'success');
+            resetBatchForm();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            const errorDetail = (data.errors && data.errors.length) ? data.errors.join('；') : (data.error || data.message || '未知错误');
+            showMessage(document.getElementById('batchFormMessage'), `录入失败: ${errorDetail}`, 'danger');
+        }
+    } catch (error) {
+        showMessage(document.getElementById('batchFormMessage'), `网络错误: ${error.message}`, 'danger');
+    }
+});
+
+function addMeasurementRow() {
+    const tbody = document.getElementById('batchTableBody');
+    const firstRow = tbody.querySelector('tr');
+    const newRow = firstRow.cloneNode(true);
+
+    // 新行样本号自动递增（行数+1），避免每行都默认为1导致"样本号已存在"批量录入失败
+    const nextSampleNumber = tbody.querySelectorAll('tr').length + 1;
+    newRow.querySelectorAll('input').forEach(input => {
+        if (input.name === 'sample_number') input.value = String(nextSampleNumber);
+        else if (input.type === 'number') input.value = '1';
+        else input.value = '';
+    });
+    newRow.querySelector('select').value = '';
+
+    tbody.appendChild(newRow);
+}
+
+function removeRow(btn) {
+    const tbody = document.getElementById('batchTableBody');
+    if (tbody.querySelectorAll('tr').length > 1) {
+        btn.closest('tr').remove();
+    } else {
+        // 如果只有一行，清空值
+        const row = tbody.querySelector('tr');
+        row.querySelectorAll('input').forEach(input => {
+            if (input.type === 'number') input.value = '1';
+            else input.value = '';
+        });
+        row.querySelector('select').value = '';
+    }
+}
+
+function clearForm() {
+    document.getElementById('characteristicSelect').value = '';
+    document.getElementById('sampleNumber').value = '1';
+    document.getElementById('measuredValue').value = '';
+    document.getElementById('measurementNotes').value = '';
+    document.getElementById('nominalValue').value = '';
+}
+
+function resetBatchForm() {
+    const tbody = document.getElementById('batchTableBody');
+    tbody.querySelectorAll('tr').forEach((row, index) => {
+        row.querySelectorAll('input').forEach(input => {
+            if (input.type === 'number') input.value = '1';
+            else input.value = '';
+        });
+        row.querySelector('select').value = index === 0 ? '' : '';
+    });
+}
+
+function showMessage(element, message, type) {
+    element.className = `mt-2 alert alert-${type}`;
+    element.textContent = message;
+    element.style.display = 'block';
+    setTimeout(() => {
+        element.style.display = 'none';
+    }, 5000);
+}
+
+function getCSRFToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+           document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+}
+</script>
+{% endblock %}

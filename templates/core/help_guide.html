@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block title %}使用指南 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li><li class="breadcrumb-item active">使用指南</li>{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-question-circle me-2"></i>使用指南</h2>
+    <span class="text-muted small">从零开始了解系统每个功能，以及它们如何串成一条完整的首件检验流程</span>
+</div>
+
+<!-- 整体流程图 -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="bi bi-diagram-3 me-2"></i>整体业务流程
+    </div>
+    <div class="card-body">
+        <p class="text-muted">一个零件从"建档"到"出具检验报告"，通常按下面的顺序走一遍。带 <span class="badge bg-warning text-dark">准备</span> 标记的环节不是严格的前置步骤，可以在检验计划建立前后随时补充完善。</p>
+
+        <div class="d-flex flex-wrap align-items-stretch gap-2 justify-content-center py-3" style="row-gap: 1rem;">
+            {% include 'core/_flow_step.html' with icon='bi-box-seam' title='① 零件管理' desc='建立零件档案、上传图纸' url='part_list' %}
+            <div class="d-flex align-items-center text-muted"><i class="bi bi-arrow-right fs-4"></i></div>
+            {% include 'core/_flow_step.html' with icon='bi-camera' title='② 图纸识别(OCR)' desc='AI自动提取尺寸/公差' url='part_list' %}
+            <div class="d-flex align-items-center text-muted"><i class="bi bi-arrow-right fs-4"></i></div>
+            {% include 'core/_flow_step.html' with icon='bi-clipboard-check' title='③ 检验计划' desc='确认检验特性清单' url='plan_list' %}
+            <div class="d-flex align-items-center text-muted"><i class="bi bi-arrow-right fs-4"></i></div>
+            {% include 'core/_flow_step.html' with icon='bi-rulers' title='④ 测量批次' desc='录入实测数据' url='batch_list' %}
+            <div class="d-flex align-items-center text-muted"><i class="bi bi-arrow-right fs-4"></i></div>
+            {% include 'core/_flow_step.html' with icon='bi-graph-up' title='⑤ Cp/Cpk分析' desc='自动判定过程能力' url='cpk_analysis' %}
+            <div class="d-flex align-items-center text-muted"><i class="bi bi-arrow-right fs-4"></i></div>
+            {% include 'core/_flow_step.html' with icon='bi-file-earmark-pdf' title='⑥ 检验报告' desc='生成AS9102/PPAP报告' url='report_list' %}
+            <div class="d-flex align-items-center text-muted"><i class="bi bi-arrow-right fs-4"></i></div>
+            {% include 'core/_flow_step.html' with icon='bi-diagram-3' title='⑦ 审批流程' desc='多级审批+电子签名' url='workflow_list' %}
+        </div>
+
+        <div class="d-flex flex-wrap align-items-stretch gap-2 justify-content-center py-2 mt-2 border-top pt-3" style="row-gap: 1rem;">
+            <div class="text-muted small d-flex align-items-center me-2"><i class="bi bi-arrow-down-right me-1"></i>检验准备（②③之间随时可做）：</div>
+            {% include 'core/_flow_step.html' with icon='bi-file-earmark-text' title='SOP文档' desc='作业指导/控制计划' url='sop_list' variant='warning' %}
+            {% include 'core/_flow_step.html' with icon='bi-shield-plus' title='控制要求' desc='关键控制点怎么管' url='control_requirement_list' variant='warning' %}
+            {% include 'core/_flow_step.html' with icon='bi-exclamation-circle' title='风险点' desc='潜在失效与预案' url='risk_point_list' variant='warning' %}
+        </div>
+
+        <div class="d-flex flex-wrap align-items-stretch gap-2 justify-content-center py-2 border-top pt-3" style="row-gap: 1rem;">
+            <div class="text-muted small d-flex align-items-center me-2"><i class="bi bi-arrow-down-right me-1"></i>结果异常时：</div>
+            {% include 'core/_flow_step.html' with icon='bi-exclamation-triangle' title='不合格品处理(NCR)' desc='超差后的处置闭环' url='ncr_list' variant='danger' %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- 核心业务 -->
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-folder me-2"></i>核心业务</div>
+            <div class="card-body">
+
+                <h5><i class="bi bi-folder text-primary me-2"></i>项目管理</h5>
+                <p>把一个零件从立项到出报告的全过程串成一个"FAI项目"，按8个固定步骤（产品信息→图纸导入→OCR识别→尺寸公差表→测量数据→统计分析→报告生成→审批流程）跟踪进度。</p>
+                <p class="text-muted small">什么时候用：希望对整个首件检验任务有一个进度总览、知道卡在哪一步时使用；不是必须的，跳过它也能正常完成零件检验的全部步骤。</p>
+                <hr>
+
+                <h5><i class="bi bi-box-seam text-primary me-2"></i>零件管理</h5>
+                <p>系统的起点。新建零件时填写零件编号、名称、版次、材料、客户、表面处理等基本信息，并上传图纸（PDF/图片/CAD文件）。</p>
+                <p class="text-muted small">怎么用：点击"新建零件" → 填写基本信息 → 保存后在零件详情页可以上传图纸附件，进入"图纸识别"或"零件分析"做进一步处理。</p>
+                <hr>
+
+                <h5><i class="bi bi-camera text-primary me-2"></i>图纸识别（OCR）</h5>
+                <p>在零件详情页点击"图纸识别"，系统调用AI视觉模型（或本地PaddleOCR）自动读取图纸上的尺寸标注、公差、形位公差，并尝试标出每个尺寸在图纸上的气泡位置。</p>
+                <p class="text-muted small">
+                    <strong>重要：</strong>AI识别结果可能有误（公差看错、位置偏移），<u>务必在"图纸识别"页面逐条核对修正</u>，确认无误后点击"保存并确认复核"。
+                    未经确认复核的识别结果<strong>无法</strong>用于生成正式检验计划——这是系统刻意设置的安全闸口，防止识别错误被悄悄带入正式FAI记录。
+                </p>
+                <hr>
+
+                <h5><i class="bi bi-clipboard-check text-primary me-2"></i>检验计划</h5>
+                <p>定义"要检验哪些特性、每个特性的标称值和公差是多少、用什么方法测"。可以在图纸识别确认复核后一键"生成检测表"自动建立，也可以手动新建计划后逐条"添加特性"。</p>
+                <p class="text-muted small">状态流转：草稿 → 提交审核 → 批准（激活）后才能创建测量批次。平面度、位置度等只有单侧公差的形位公差特性，添加时可以把"上公差"或"下公差"留空。</p>
+                <hr>
+
+                <h5><i class="bi bi-rulers text-primary me-2"></i>测量批次</h5>
+                <p>检验计划批准后，在计划详情页点击"创建测量批次"，记录本次测量用的设备、环境温湿度等信息，然后在批次详情页录入每个特性的实测值——可以逐条手动录入，也可以用下方的批量表格一次录入多行。</p>
+                <p class="text-muted small">每录入一条测量数据，系统会立即自动判定合格/不合格，并重新计算该特性的Cp/Cpk统计结果，无需手动触发。</p>
+                <hr>
+
+                <h5><i class="bi bi-graph-up text-primary me-2"></i>Cp/Cpk分析</h5>
+                <p>集中查看所有批次、所有特性的过程能力指数。Cpk≥1.33一般视为良好，≥1.0勉强合格，&lt;1.0需要采取措施。样本量低于30件时，结果仅作为首件检验阶段的参考，不等同于正式的量产过程能力研究。</p>
+                <hr>
+
+                <h5 class="mb-0"><i class="bi bi-file-earmark-pdf text-primary me-2"></i>检验报告</h5>
+                <p>选定检验计划和测量批次后"生成报告"，系统按AS9102标准自动整理成 <strong>Form 1（零件号责任）/ Form 2（原材料、特殊工艺、功能测试）/ Form 3（特性责任与尺寸实测结果）</strong> 三部分，并提供PDF下载。Form 2的材料证书、热处理/电镀等特殊工艺记录、功能测试结果需要在报告详情页手动补充。</p>
+            </div>
+        </div>
+
+        <!-- 检验准备 -->
+        <div class="card mb-4" id="prep">
+            <div class="card-header bg-warning bg-opacity-10"><i class="bi bi-tools me-2"></i>检验准备：SOP / 控制要求 / 风险点 怎么用？</div>
+            <div class="card-body">
+                <p class="text-muted">这三个功能都属于"正式测量之前，把该想清楚的事情先记录下来"，目的不同、互相配合，<strong>不是非用不可的强制步骤</strong>，但建议关键件、高风险件都建立一份。三者既可以在零件详情页点击"完整分析"一次性由AI自动生成草稿，也可以分别手动创建。</p>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:14%">功能</th>
+                                <th style="width:30%">回答的问题</th>
+                                <th style="width:30%">典型内容</th>
+                                <th>什么时候建</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><i class="bi bi-file-earmark-text me-1"></i><strong>SOP文档</strong></td>
+                                <td>检验员实际操作时，<strong>按什么步骤、用什么方法</strong>测这个零件？</td>
+                                <td>标准操作程序/作业指导书/检验指导书/控制计划，含具体操作步骤章节</td>
+                                <td>检验前需要给一线检验员一份"怎么测"的操作说明书时</td>
+                            </tr>
+                            <tr>
+                                <td><i class="bi bi-shield-plus me-1"></i><strong>控制要求</strong></td>
+                                <td>这个尺寸/特性<strong>为什么重要</strong>？要用什么方式<strong>持续盯住</strong>它？</td>
+                                <td>控制类型、检测方法/工具/频次、是否关键特性(KC)、是否安全关键</td>
+                                <td>图纸上有关键特性标记，需要明确"日常怎么控、多久测一次"时</td>
+                            </tr>
+                            <tr>
+                                <td><i class="bi bi-exclamation-circle me-1"></i><strong>风险点</strong></td>
+                                <td>这个零件/工序<strong>可能在哪里出问题</strong>？出问题怎么办？</td>
+                                <td>风险类别、严重程度、发生概率、预防措施、纠正措施、应急预案</td>
+                                <td>新零件/新工艺投产前做质量风险预判（类似FMEA）时</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p class="mb-0 small text-muted">
+                    简单理解：<strong>控制要求</strong>回答"测什么、怎么测"，<strong>SOP</strong>把"怎么测"写成一份可执行的操作文档，<strong>风险点</strong>回答"万一测出问题怎么办"。
+                    它们都挂在零件下面（而不是挂在某一次检验计划下面），同一个零件以后做新的检验计划、新的测量批次时可以重复参考同一份SOP/控制要求/风险点，不需要每次重新写。
+                </p>
+            </div>
+        </div>
+
+        <!-- 流程管理 -->
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-diagram-3 me-2"></i>流程管理</div>
+            <div class="card-body">
+                <h5><i class="bi bi-diagram-3 text-primary me-2"></i>审批流程</h5>
+                <p>检验计划提交审核、检验报告发布前，都会走多级审批。在"审批流程"页面能看到分配给自己的待审批事项，点击进入后填写审批意见并选择"通过"或"拒绝"。</p>
+                <hr>
+                <h5><i class="bi bi-exclamation-triangle text-primary me-2"></i>不合格品处理（NCR）</h5>
+                <p>测量数据判定不合格、或检验中发现实物缺陷时，新建一条NCR记录登记问题，再添加处理措施（返工/返修/报废/让步接收/退货/评审），跟踪到关闭，形成完整的不合格品闭环。</p>
+                <hr>
+                <h5 class="mb-0"><i class="bi bi-cpu text-primary me-2"></i>设备集成</h5>
+                <p class="mb-0">登记测量设备（三坐标、光学测量仪等）信息，可以"连接"测试设备状态、导入设备直接产出的测量数据文件，减少手工誊抄。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-gear me-2"></i>系统管理</div>
+            <div class="card-body">
+                <h6><i class="bi bi-cpu me-2"></i>引擎配置</h6>
+                <p class="small text-muted">查看/安装本地OCR引擎（PaddleOCR等），不安装也可以直接使用云端AI视觉模型识别图纸。</p>
+                <h6><i class="bi bi-people me-2"></i>用户管理 / 角色管理</h6>
+                <p class="small text-muted mb-0">管理员在此创建用户账号、分配角色。每个角色对应一组模块权限（如检验员只能操作测量数据），新用户必须分配至少一个角色才能看到对应菜单。</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-lightbulb me-2"></i>常见疑问</div>
+            <div class="card-body">
+                <p class="small"><strong>Q: 一定要先做OCR识别才能建检验计划吗？</strong><br>不需要。OCR识别只是为了少打字，跳过它直接在检验计划里手动"添加特性"完全可行。</p>
+                <p class="small"><strong>Q: SOP/控制要求/风险点必须三个都建吗？</strong><br>不需要，按需使用，缺一个或都不建也不影响测量和出报告。</p>
+                <p class="small"><strong>Q: 为什么我批量录入提示"成功"，但列表里没看到数据？</strong><br>请检查每一行的"样本号"是否与该特性下已有记录重复——同一特性同一样本号不能重复录入，重复的行会被跳过并在提示中列出失败原因。</p>
+                <p class="small mb-0"><strong>Q: Cpk算不出来/显示"-"？</strong><br>检查该特性下是否真的已有≥2条测量记录（点击批次详情页"测量记录"列表确认条数），并确认该特性已设置标称值和至少一侧公差。</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header"><i class="bi bi-link-45deg me-2"></i>更多文档</div>
+            <div class="card-body">
+                <p class="small text-muted mb-0">更详细的部署、API、数据库结构等技术文档见项目 <code>docs/</code> 目录（DEPLOYMENT_GUIDE.md / API_REFERENCE.md / DATABASE_SCHEMA.md / WORKFLOW_OVERVIEW.md）。</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

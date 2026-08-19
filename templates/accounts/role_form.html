@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+{% load permission_tags %}
+
+{% block title %}编辑角色 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'role_list' %}">角色管理</a></li>
+<li class="breadcrumb-item active">{{ object.name }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-pencil me-2"></i>编辑角色</h2>
+    <a href="{% url 'role_list' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>返回
+    </a>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    
+    <div class="row">
+        <div class="col-md-4">
+            <!-- 基本信息 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-2"></i>基本信息
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">角色名称</label>
+                        <input type="text" class="form-control" name="name" value="{{ object.name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">角色代码</label>
+                        <input type="text" class="form-control" name="code" value="{{ object.code }}" readonly>
+                        <small class="text-muted">角色代码不可修改</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" name="description" rows="3">{{ object.description }}</textarea>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="is_active" 
+                               {% if object.is_active %}checked{% endif %}>
+                        <label class="form-check-label" for="is_active">启用角色</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            <!-- 权限配置 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-key me-2"></i>权限配置
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">勾选对应模块的权限项，保存后立即生效。</p>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>模块</th>
+                                    <th>查看</th>
+                                    <th>新增</th>
+                                    <th>编辑</th>
+                                    <th>删除</th>
+                                    <th>提交</th>
+                                    <th>审核</th>
+                                    <th>批准</th>
+                                    <th>发布</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for module, actions in module_permissions.items %}
+                                <tr>
+                                    <td>
+                                        <strong>
+                                            {% if module == 'parts' %}零件管理
+                                            {% elif module == 'inspections' %}检验计划
+                                            {% elif module == 'measurements' %}测量数据
+                                            {% elif module == 'reports' %}检验报告
+                                            {% elif module == 'workflows' %}审批流程
+                                            {% elif module == 'projects' %}项目管理
+                                            {% elif module == 'equipment' %}设备管理
+                                            {% elif module == 'users' %}用户管理
+                                            {% else %}{{ module }}
+                                            {% endif %}
+                                        </strong>
+                                    </td>
+                                    {% for action in actions %}
+                                    <td class="text-center">
+                                        <input type="checkbox" name="perm_{{ module }}_{{ action }}" 
+                                               {% if action in object.permissions|get_item:module %}checked{% endif %}
+                                               class="form-check-input">
+                                    </td>
+                                    {% endfor %}
+                                    {% for i in "12345678"|make_list %}
+                                    {% if forloop.counter0 >= actions|length %}
+                                    <td class="text-center text-muted">-</td>
+                                    {% endif %}
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check me-1"></i>保存
+        </button>
+        <a href="{% url 'role_list' %}" class="btn btn-outline-secondary">取消</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 自动更新权限JSON
+document.querySelector('form').addEventListener('submit', function(e) {
+    const permissions = {};
+    const checkboxes = document.querySelectorAll('input[type="checkbox"][name^="perm_"]');
+    
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            const parts = cb.name.replace('perm_', '').split('_');
+            const module = parts[0];
+            const action = parts[1];
+            if (!permissions[module]) {
+                permissions[module] = [];
+            }
+            permissions[module].push(action);
+        }
+    });
+    
+    // 添加隐藏字段
+    const hiddenField = document.createElement('input');
+    hiddenField.type = 'hidden';
+    hiddenField.name = 'permissions';
+    hiddenField.value = JSON.stringify(permissions);
+    this.appendChild(hiddenField);
+});
+</script>
+{% endblock %}

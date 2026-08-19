@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - FAI质量评审系统{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-body text-center py-5">
+                    <div class="mb-4">
+                        <i class="bi bi-shield-exclamation text-warning" style="font-size: 5rem;"></i>
+                    </div>
+                    <h2 class="card-title mb-3">{{ title }}</h2>
+                    <p class="card-text text-muted mb-4">{{ message }}</p>
+                    
+                    {% if user.is_authenticated %}
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        当前登录用户: <strong>{{ user.username }}</strong>
+                        <br>
+                        <small class="text-muted">如需访问系统功能，请联系管理员为您分配角色。</small>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-center gap-3">
+                        <a href="{% url 'index' %}" class="btn btn-primary">
+                            <i class="bi bi-house me-2"></i>返回首页
+                        </a>
+                        {% if user.is_authenticated %}
+                        <a href="{% url 'logout' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-box-arrow-right me-2"></i>退出登录
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    <i class="bi bi-question-circle me-1"></i>
+                    如有疑问，请联系系统管理员或发送邮件至 
+                    <a href="mailto:admin@example.com">admin@example.com</a>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block login_content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <i class="bi bi-shield-exclamation text-warning" style="font-size: 4rem;"></i>
+            <h2 class="text-white mt-3">{{ title }}</h2>
+        </div>
+        <div class="card shadow">
+            <div class="card-body p-4 text-center">
+                <p class="text-muted mb-4">{{ message }}</p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'index' %}" class="btn btn-primary">
+                        <i class="bi bi-house me-2"></i>返回首页
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

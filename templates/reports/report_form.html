@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}编辑检验报告{% else %}创建检验报告{% endif %} - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'report_list' %}">检验报告</a></li>
+<li class="breadcrumb-item active">{% if is_edit %}编辑{% else %}创建{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">{% if is_edit %}编辑检验报告{% else %}创建检验报告{% endif %}</h2>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if not is_edit and not batches|length %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>提示：</strong>没有可用的测量批次。请先完成以下步骤：
+            <ol class="mb-0 mt-2">
+                <li>进行<strong>图纸识别</strong>获取尺寸信息</li>
+                <li>创建<strong>检验计划</strong>并激活</li>
+                <li>创建<strong>测量批次</strong>并录入测量数据</li>
+                <li>完成测量批次后即可生成报告</li>
+            </ol>
+        </div>
+        {% endif %}
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row">
+                <div class="col-md-12 mb-3">
+                    <label class="form-label">报告标题 <span class="text-danger">*</span></label>
+                    <input type="text" name="title" class="form-control" value="{{ object.title|default:'' }}" required>
+                </div>
+                
+                {% if not is_edit %}
+                <!-- 零件选择 -->
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">选择零件</label>
+                    <select name="part" class="form-select" id="partSelect">
+                        <option value="">请选择零件</option>
+                        {% for part in parts %}
+                        <option value="{{ part.pk }}">{{ part.part_number }} - {{ part.part_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">选择零件后自动筛选检验计划和测量批次</div>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">检验计划 <span class="text-danger">*</span></label>
+                    <select name="plan" class="form-select" required id="planSelect">
+                        <option value="">选择检验计划</option>
+                        {% for plan in plans %}
+                        <option value="{{ plan.pk }}" data-part-id="{{ plan.part.pk }}">{{ plan.plan_number }} - {{ plan.plan_name }} ({{ plan.part.part_number }})</option>
+                        {% endfor %}
+                    </select>
+                    {% if not plans|length %}
+                    <small class="text-danger">没有可用的检验计划，请先创建检验计划</small>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">测量批次 <span class="text-danger">*</span></label>
+                    <select name="batch" class="form-select" required id="batchSelect">
+                        <option value="">选择测量批次</option>
+                        {% for batch in batches %}
+                        <option value="{{ batch.pk }}" data-plan-id="{{ batch.plan.pk }}">{{ batch.batch_number }} ({{ batch.plan.plan_name }})</option>
+                        {% endfor %}
+                    </select>
+                    {% if not batches|length %}
+                    <small class="text-danger">没有已完成的测量批次，请先完成测量</small>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">报告模板</label>
+                    <select name="template" class="form-select">
+                        <option value="">选择模板</option>
+                        {% for template in templates %}
+                        <option value="{{ template.pk }}">{{ template.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">标准</label>
+                    <select name="standard" class="form-select">
+                        <option value="AS9102" {% if object.standard == 'AS9102' %}selected{% endif %}>AS9102</option>
+                        <option value="PPAP" {% if object.standard == 'PPAP' %}selected{% endif %}>PPAP</option>
+                        <option value="CUSTOM" {% if object.standard == 'CUSTOM' %}selected{% endif %}>自定义</option>
+                    </select>
+                </div>
+                
+                {% if is_edit %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">状态</label>
+                    <select name="status" class="form-select">
+                        <option value="DRAFT" {% if object.status == 'DRAFT' %}selected{% endif %}>草稿</option>
+                        <option value="GENERATING" {% if object.status == 'GENERATING' %}selected{% endif %}>生成中</option>
+                        <option value="COMPLETED" {% if object.status == 'COMPLETED' %}selected{% endif %}>已完成</option>
+                        <option value="PUBLISHED" {% if object.status == 'PUBLISHED' %}selected{% endif %}>已发布</option>
+                    </select>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary" {% if not is_edit %}{% if not plans|length or not batches|length %}disabled{% endif %}{% endif %}>
+                    <i class="bi bi-check-lg me-1"></i>{% if is_edit %}保存修改{% else %}创建报告{% endif %}
+                </button>
+                <a href="{% url 'report_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg me-1"></i>取消
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const partSelect = document.getElementById('partSelect');
+    const planSelect = document.getElementById('planSelect');
+    const batchSelect = document.getElementById('batchSelect');
+    
+    if (!partSelect || !planSelect || !batchSelect) return;
+    
+    // 存储所有选项
+    const planOptions = Array.from(planSelect.options);
+    const batchOptions = Array.from(batchSelect.options);
+    
+    // 零件选择时筛选计划和批次
+    partSelect.addEventListener('change', function() {
+        const partId = this.value;
+        
+        // 筛选检验计划
+        planSelect.innerHTML = '<option value="">选择检验计划</option>';
+        planOptions.forEach(option => {
+            if (option.value && option.dataset.partId === partId) {
+                planSelect.appendChild(option.cloneNode(true));
+            }
+        });
+        
+        // 重置测量批次
+        batchSelect.innerHTML = '<option value="">选择测量批次</option>';
+        
+        // 自动选择第一个计划
+        if (planSelect.options.length > 1) {
+            planSelect.selectedIndex = 1;
+            planSelect.dispatchEvent(new Event('change'));
+        }
+    });
+    
+    // 计划选择时筛选测量批次
+    planSelect.addEventListener('change', function() {
+        const planId = this.value;
+        
+        batchSelect.innerHTML = '<option value="">选择测量批次</option>';
+        batchOptions.forEach(option => {
+            if (option.value && option.dataset.planId === planId) {
+                batchSelect.appendChild(option.cloneNode(true));
+            }
+        });
+        
+        // 自动选择第一个批次
+        if (batchSelect.options.length > 1) {
+            batchSelect.selectedIndex = 1;
+        }
+    });
+});
+</script>
+{% endblock %}

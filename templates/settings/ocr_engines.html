@@ -1,0 +1,854 @@
+{% extends 'base.html' %}
+
+{% block title %}引擎配置 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="/">首页</a></li>
+<li class="breadcrumb-item active">引擎配置</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 顶部状态概览 -->
+    <div class="row mb-4" id="overviewCards">
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-primary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">默认引擎</h6>
+                            <h4 class="mb-0" id="defaultEngineName">检测中...</h4>
+                        </div>
+                        <i class="bi bi-cpu display-5 text-primary opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-success h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">本地引擎</h6>
+                            <h4 class="mb-0" id="localEngineCount">-</h4>
+                        </div>
+                        <i class="bi bi-hdd display-5 text-success opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-info h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">云端引擎</h6>
+                            <h4 class="mb-0" id="cloudEngineCount">-</h4>
+                        </div>
+                        <i class="bi bi-cloud display-5 text-info opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-start border-4 border-warning h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-1">API密钥</h6>
+                            <h4 class="mb-0" id="apiKeyStatus">检测中...</h4>
+                        </div>
+                        <i class="bi bi-key display-5 text-warning opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 左侧：引擎配置 -->
+        <div class="col-lg-8">
+            <!-- 本地引擎 -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-hdd me-2"></i>本地OCR引擎</span>
+                    <span class="badge bg-secondary" id="localEngineBadge">0 已安装</span>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width:25%">引擎</th>
+                                <th style="width:35%">描述</th>
+                                <th style="width:15%">支持格式</th>
+                                <th style="width:12%">状态</th>
+                                <th style="width:13%">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <strong>PaddleOCR</strong>
+                                    <br><small class="text-muted">paddleocr</small>
+                                </td>
+                                <td>
+                                    百度开源超轻量OCR，支持80+语言，精度高速度快
+                                    <br><a href="https://github.com/PaddlePaddle/PaddleOCR" target="_blank">GitHub <i class="bi bi-box-arrow-up-right small"></i></a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info me-1">图片</span>
+                                    <span class="badge bg-danger">PDF</span>
+                                </td>
+                                <td><span class="badge bg-secondary" id="paddleocr-install-status">检测中</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" id="btn-install-paddleocr" onclick="installEngine('paddleocr')">
+                                        <i class="bi bi-download me-1"></i>安装
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <strong>EasyOCR</strong>
+                                    <br><small class="text-muted">easyocr</small>
+                                </td>
+                                <td>
+                                    多语言通用OCR，基于PyTorch，易于使用
+                                    <br><a href="https://github.com/JaidedAI/EasyOCR" target="_blank">GitHub <i class="bi bi-box-arrow-up-right small"></i></a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info me-1">图片</span>
+                                    <span class="badge bg-danger">PDF</span>
+                                </td>
+                                <td><span class="badge bg-secondary" id="easyocr-install-status">检测中</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" id="btn-install-easyocr" onclick="installEngine('easyocr')">
+                                        <i class="bi bi-download me-1"></i>安装
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <strong>Tesseract OCR</strong>
+                                    <br><small class="text-muted">pytesseract</small>
+                                </td>
+                                <td>
+                                    Google开源OCR引擎，历史悠久，支持多语言
+                                    <br><a href="https://github.com/tesseract-ocr/tesseract" target="_blank">GitHub <i class="bi bi-box-arrow-up-right small"></i></a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info me-1">图片</span>
+                                    <span class="badge bg-danger">PDF</span>
+                                </td>
+                                <td><span class="badge bg-secondary" id="tesseract-install-status">检测中</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" id="btn-install-tesseract" onclick="installEngine('tesseract')">
+                                        <i class="bi bi-download me-1"></i>安装
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <strong>RapidOCR</strong>
+                                    <br><small class="text-muted">rapidocr</small>
+                                </td>
+                                <td>
+                                    基于PaddleOCR的高性能推理库，ONNXRuntime加速
+                                    <br><a href="https://github.com/RapidAI/RapidOCR" target="_blank">GitHub <i class="bi bi-box-arrow-up-right small"></i></a>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info me-1">图片</span>
+                                    <span class="badge bg-danger">PDF</span>
+                                </td>
+                                <td><span class="badge bg-secondary" id="rapidocr-install-status">检测中</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" id="btn-install-rapidocr" onclick="installEngine('rapidocr')">
+                                        <i class="bi bi-download me-1"></i>安装
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 云端AI视觉模型配置（厂商无关） -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-cloud me-2"></i>云端AI视觉模型</span>
+                    <span class="badge bg-info" id="cloudEngineBadge">厂商可配置</span>
+                </div>
+                <div class="card-body">
+                    <form id="aiVisionForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">厂商</label>
+                                <select class="form-select" id="aiVisionProvider" required>
+                                    <option value="">请选择...</option>
+                                    <option value="doubao">豆包（火山引擎方舟）</option>
+                                    <option value="kimi">Kimi（月之暗面）</option>
+                                    <option value="glm">GLM（智谱AI）</option>
+                                    <option value="custom">自定义(OpenAI兼容接口)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">模型名称</label>
+                                <input type="text" class="form-control" id="aiVisionModel" placeholder="选择厂商后自动填充，可自行修改">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">服务地址 (Base URL)</label>
+                                <input type="text" class="form-control" id="aiVisionBaseUrl" placeholder="选择厂商后自动填充，可自行修改">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">API密钥</label>
+                                <input type="password" class="form-control" id="aiVisionApiKey" placeholder="已配置时留空不修改" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>保存
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="aiVisionTestBtn">
+                                <i class="bi bi-plug me-1"></i>测试连接
+                            </button>
+                        </div>
+                    </form>
+                    <div class="mt-3" id="aiVisionStatus"></div>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        支持任何OpenAI兼容多模态接口。选择「自定义」可对接其他厂商或私有部署的视觉模型。
+                    </small>
+                </div>
+            </div>
+
+            <!-- 百度OCR REST API配置 -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-cloud-check me-2"></i>百度OCR（文字识别 REST API）</span>
+                    <span class="badge bg-secondary" id="baiduOcrBadge">检测中</span>
+                </div>
+                <div class="card-body">
+                    <form id="baiduOcrForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">API Key</label>
+                                <input type="password" class="form-control" id="baiduOcrApiKey" placeholder="已配置时留空不修改" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Secret Key</label>
+                                <input type="password" class="form-control" id="baiduOcrSecretKey" placeholder="已配置时留空不修改" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>保存
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="baiduOcrTestBtn">
+                                <i class="bi bi-plug me-1"></i>测试连接
+                            </button>
+                        </div>
+                    </form>
+                    <div class="mt-3" id="baiduOcrStatus"></div>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        在 <a href="https://console.bce.baidu.com/ai/#/ai/ocr/app/list" target="_blank">百度智能云控制台</a> 创建文字识别应用，获取 API Key 和 Secret Key。
+                        配置后可在气泡图识别页面选择「百度OCR」引擎。
+                    </small>
+                </div>
+            </div>
+
+            <!-- 对象存储配置（厂商无关） -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-hdd-network me-2"></i>对象存储配置</span>
+                    <span class="badge bg-secondary" id="storageStatusBadge">检测中</span>
+                </div>
+                <div class="card-body">
+                    <form id="storageForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">厂商</label>
+                                <select class="form-select" id="storageProvider" required>
+                                    <option value="">不使用对象存储（本地文件系统）</option>
+                                    <option value="s3">AWS S3 / 标准S3兼容存储</option>
+                                    <option value="aliyun_oss">阿里云OSS</option>
+                                    <option value="tencent_cos">腾讯云COS</option>
+                                    <option value="volcengine_tos">火山引擎TOS</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">存储桶名称(Bucket)</label>
+                                <input type="text" class="form-control" id="storageBucket" placeholder="例如: fai-system-files">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">区域(Region)</label>
+                                <input type="text" class="form-control" id="storageRegion" placeholder="例如: cn-hangzhou / ap-beijing">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">服务地址(Endpoint，可留空自动推断)</label>
+                                <input type="text" class="form-control" id="storageEndpoint" placeholder="留空则根据厂商+区域自动生成">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">AccessKey ID</label>
+                                <input type="password" class="form-control" id="storageAccessKey" placeholder="已配置时留空不修改" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">AccessKey Secret</label>
+                                <input type="password" class="form-control" id="storageSecretKey" placeholder="已配置时留空不修改" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">公开访问域名(可选，CDN/自定义域名)</label>
+                                <input type="text" class="form-control" id="storagePublicUrl" placeholder="例如: https://files.example.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">寻址方式</label>
+                                <select class="form-select" id="storageAddressingStyle">
+                                    <option value="">默认(根据厂商自动选择)</option>
+                                    <option value="virtual">虚拟主机风格(virtual)</option>
+                                    <option value="path">路径风格(path)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>保存
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="storageTestBtn">
+                                <i class="bi bi-plug me-1"></i>测试连接
+                            </button>
+                        </div>
+                    </form>
+                    <div class="mt-3" id="storageStatus"></div>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        未配置厂商时使用本地文件系统存储（适合开发/单机部署）。配置保存后需<strong>重启应用进程</strong>才能生效。
+                    </small>
+                </div>
+            </div>
+
+            <!-- 安装日志 -->
+            <div class="mb-4" id="installLogSection" style="display: none;">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-terminal me-2"></i>安装日志
+                    </div>
+                    <div class="card-body p-0">
+                        <pre id="installLog" class="bg-dark text-light mb-0 p-3" style="max-height: 300px; overflow-y: auto; font-size: 12px;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧：配置面板 -->
+        <div class="col-lg-4">
+            <!-- 引擎优先级说明 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-arrow-down-up me-2"></i>引擎选择优先级
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2 p-2 bg-light rounded">
+                        <span class="badge bg-success me-2">1</span>
+                        <div>
+                            <strong>本地引擎</strong>
+                            <br><small class="text-muted">PaddleOCR / EasyOCR（免费、离线）</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center mb-2 p-2 bg-light rounded">
+                        <span class="badge bg-info me-2">2</span>
+                        <div>
+                            <strong>云端AI视觉模型</strong>
+                            <br><small class="text-muted">豆包/Kimi/GLM/自定义（高精度）</small>
+                        </div>
+                    </div>
+                    <hr>
+                    <p class="small text-muted mb-0">
+                        系统自动选择可用引擎。本地引擎失败时，自动降级到云端AI视觉模型。
+                    </p>
+                </div>
+            </div>
+
+            <!-- 配置指南 -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-lightning me-2"></i>快速配置指南
+                </div>
+                <div class="card-body">
+                    <ol class="small mb-0">
+                        <li class="mb-2">
+                            <strong>方式一：本地引擎（推荐）</strong><br>
+                            <span class="text-muted">点击左侧「安装」按钮安装PaddleOCR，无需API密钥</span>
+                        </li>
+                        <li class="mb-2">
+                            <strong>方式二：云端AI视觉模型</strong><br>
+                            <span class="text-muted">在左侧「云端AI视觉模型」卡片中选择厂商并填写API密钥</span>
+                        </li>
+                        <li>
+                            <strong>方式三：对象存储（可选）</strong><br>
+                            <span class="text-muted">默认使用本地文件系统，如需对接S3/OSS/COS/TOS，在左侧「对象存储配置」中填写</span>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 安装进度模态框 -->
+<div class="modal fade" id="installModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    正在安装OCR引擎...
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%" id="installProgress"></div>
+                </div>
+                <p id="installMessage">准备安装...</p>
+                <pre id="installOutput" class="bg-light p-2" style="max-height: 200px; overflow-y: auto; font-size: 12px;"></pre>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ========== 状态加载 ==========
+document.addEventListener('DOMContentLoaded', function() {
+    loadEngineStatus();
+    loadAiVisionConfig();
+    loadBaiduOcrConfig();
+    loadStorageConfig();
+    initAiVisionForm();
+    initBaiduOcrForm();
+    initStorageForm();
+});
+
+async function loadEngineStatus() {
+    try {
+        const response = await fetch('/api/v1/ocr/status/');
+        const data = await response.json();
+
+        // 更新概览卡片
+        document.getElementById('defaultEngineName').textContent =
+            data.default === 'local' ? '本地引擎' : '云端AI';
+
+        const localCount = (data.local.engines || []).filter(e => e.installed).length;
+        document.getElementById('localEngineCount').textContent = localCount + ' 个';
+        document.getElementById('localEngineBadge').textContent = localCount + ' 已安装';
+
+        const cloudConfigured = data.cloud.configured;
+        document.getElementById('cloudEngineCount').textContent = cloudConfigured ? '可用' : '未配置';
+
+        // 更新API密钥状态卡片
+        document.getElementById('apiKeyStatus').innerHTML = cloudConfigured
+            ? '<span class="text-success">已配置</span>'
+            : '<span class="text-warning">未配置</span>';
+
+        // 更新本地引擎表格状态
+        const engineStatusMap = {
+            'paddleocr': 'paddleocr-install-status',
+            'easyocr': 'easyocr-install-status',
+            'tesseract': 'tesseract-install-status',
+            'rapidocr': 'rapidocr-install-status'
+        };
+
+        const installedEngines = data.local.engines || [];
+
+        for (const [engineId, elId] of Object.entries(engineStatusMap)) {
+            const el = document.getElementById(elId);
+            const engineInfo = installedEngines.find(e => e.id === engineId);
+            if (el) {
+                if (engineInfo && engineInfo.installed) {
+                    el.className = 'badge bg-success';
+                    el.textContent = 'v' + (engineInfo.version || '?');
+                    const btn = document.getElementById('btn-install-' + engineId);
+                    if (btn) {
+                        btn.className = 'btn btn-sm btn-outline-success';
+                        btn.disabled = true;
+                        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>已安装';
+                    }
+                } else {
+                    el.className = 'badge bg-secondary';
+                    el.textContent = '未安装';
+                }
+            }
+        }
+    } catch (e) {
+        console.error('加载引擎状态失败:', e);
+    }
+}
+
+// ========== AI视觉模型配置 ==========
+const AI_VISION_PRESETS_FALLBACK = {
+    doubao: { base_url: 'https://ark.cn-beijing.volces.com/api/v3', default_model: 'doubao-seed-1-6-vision-250815' },
+    kimi: { base_url: 'https://api.moonshot.cn/v1', default_model: 'moonshot-v1-128k-vision-preview' },
+    glm: { base_url: 'https://open.bigmodel.cn/api/paas/v4', default_model: 'glm-4v-plus' },
+    custom: { base_url: '', default_model: '' },
+};
+
+async function loadAiVisionConfig() {
+    try {
+        const response = await fetch('/api/v1/settings/ai-vision/');
+        const data = await response.json();
+
+        if (data.provider) document.getElementById('aiVisionProvider').value = data.provider;
+        if (data.base_url) document.getElementById('aiVisionBaseUrl').value = data.base_url;
+        if (data.model) document.getElementById('aiVisionModel').value = data.model;
+        document.getElementById('aiVisionApiKey').placeholder = data.has_api_key
+            ? '已配置（留空则不修改）' : '请输入API密钥';
+
+        const statusEl = document.getElementById('aiVisionStatus');
+        statusEl.innerHTML = data.configured
+            ? `<div class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>已配置: ${data.provider_label || data.provider}（来源: ${data.key_source === 'env' ? '环境变量' : '数据库'}）</div>`
+            : `<div class="text-warning small"><i class="bi bi-exclamation-triangle-fill me-1"></i>未配置，云端AI视觉模型不可用</div>`;
+    } catch (e) {
+        console.error('加载AI视觉模型配置失败:', e);
+    }
+}
+
+function initAiVisionForm() {
+    const providerSelect = document.getElementById('aiVisionProvider');
+    providerSelect.addEventListener('change', function() {
+        const preset = AI_VISION_PRESETS_FALLBACK[this.value];
+        if (preset) {
+            const baseUrlInput = document.getElementById('aiVisionBaseUrl');
+            const modelInput = document.getElementById('aiVisionModel');
+            if (!baseUrlInput.value) baseUrlInput.value = preset.base_url;
+            if (!modelInput.value) modelInput.value = preset.default_model;
+        }
+    });
+
+    document.getElementById('aiVisionForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const payload = {
+            provider: document.getElementById('aiVisionProvider').value,
+            api_key: document.getElementById('aiVisionApiKey').value.trim(),
+            base_url: document.getElementById('aiVisionBaseUrl').value.trim(),
+            model: document.getElementById('aiVisionModel').value.trim(),
+        };
+        if (!payload.provider) { alert('请选择厂商'); return; }
+
+        try {
+            const response = await fetch('/api/v1/settings/ai-vision/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (response.ok) {
+                showToast('AI视觉模型配置已保存', 'success');
+                document.getElementById('aiVisionApiKey').value = '';
+                loadAiVisionConfig();
+                loadEngineStatus();
+            } else {
+                alert('保存失败: ' + data.error);
+            }
+        } catch (e) {
+            alert('保存失败: ' + e.message);
+        }
+    });
+
+    document.getElementById('aiVisionTestBtn').addEventListener('click', async function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>测试中...';
+        try {
+            const response = await fetch('/api/v1/settings/ai-vision/test/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            const data = await response.json();
+            alert(response.ok ? data.message : ('测试失败: ' + data.error));
+        } catch (e) {
+            alert('测试失败: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plug me-1"></i>测试连接';
+        }
+    });
+}
+
+// ========== 对象存储配置 ==========
+async function loadStorageConfig() {
+    try {
+        const response = await fetch('/api/v1/settings/storage/');
+        const data = await response.json();
+
+        if (data.provider) document.getElementById('storageProvider').value = data.provider;
+        if (data.bucket) document.getElementById('storageBucket').value = data.bucket;
+        if (data.region) document.getElementById('storageRegion').value = data.region;
+        if (data.endpoint_url) document.getElementById('storageEndpoint').value = data.endpoint_url;
+        if (data.public_base_url) document.getElementById('storagePublicUrl').value = data.public_base_url;
+        if (data.addressing_style) document.getElementById('storageAddressingStyle').value = data.addressing_style;
+        document.getElementById('storageAccessKey').placeholder = data.has_access_key
+            ? '已配置（留空则不修改）' : 'AccessKey ID';
+        document.getElementById('storageSecretKey').placeholder = data.has_secret_key
+            ? '已配置（留空则不修改）' : 'AccessKey Secret';
+
+        const badge = document.getElementById('storageStatusBadge');
+        const statusEl = document.getElementById('storageStatus');
+        if (data.configured) {
+            badge.className = 'badge bg-success';
+            badge.textContent = '已配置: ' + (data.provider_label || data.provider);
+            statusEl.innerHTML = `<div class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>对象存储已配置</div>`;
+        } else {
+            badge.className = 'badge bg-secondary';
+            badge.textContent = '本地存储';
+            statusEl.innerHTML = `<div class="text-muted small"><i class="bi bi-info-circle me-1"></i>当前使用本地文件系统存储</div>`;
+        }
+    } catch (e) {
+        console.error('加载存储配置失败:', e);
+    }
+}
+
+function initStorageForm() {
+    document.getElementById('storageForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const provider = document.getElementById('storageProvider').value;
+        if (!provider) { alert('请选择存储厂商（不使用对象存储请保持本地存储，无需提交此表单）'); return; }
+
+        const payload = {
+            provider: provider,
+            bucket_name: document.getElementById('storageBucket').value.trim(),
+            region: document.getElementById('storageRegion').value.trim(),
+            endpoint_url: document.getElementById('storageEndpoint').value.trim(),
+            access_key_id: document.getElementById('storageAccessKey').value.trim(),
+            access_key_secret: document.getElementById('storageSecretKey').value.trim(),
+            public_base_url: document.getElementById('storagePublicUrl').value.trim(),
+            addressing_style: document.getElementById('storageAddressingStyle').value,
+        };
+
+        try {
+            const response = await fetch('/api/v1/settings/storage/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (response.ok) {
+                showToast(data.message, 'success');
+                document.getElementById('storageAccessKey').value = '';
+                document.getElementById('storageSecretKey').value = '';
+                loadStorageConfig();
+            } else {
+                alert('保存失败: ' + data.error);
+            }
+        } catch (e) {
+            alert('保存失败: ' + e.message);
+        }
+    });
+
+    document.getElementById('storageTestBtn').addEventListener('click', async function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>测试中...';
+        try {
+            const response = await fetch('/api/v1/settings/storage/test/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            const data = await response.json();
+            alert(response.ok ? data.message : ('测试失败: ' + data.error));
+        } catch (e) {
+            alert('测试失败: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plug me-1"></i>测试连接';
+        }
+    });
+}
+
+// ========== 百度OCR配置 ==========
+async function loadBaiduOcrConfig() {
+    try {
+        const response = await fetch('/api/v1/settings/baidu-ocr/');
+        const data = await response.json();
+        const badge = document.getElementById('baiduOcrBadge');
+        if (data.configured) {
+            badge.className = 'badge bg-success';
+            badge.textContent = '已配置';
+            document.getElementById('baiduOcrApiKey').placeholder = '已配置（留空则不修改）';
+            document.getElementById('baiduOcrSecretKey').placeholder = '已配置（留空则不修改）';
+        } else {
+            badge.className = 'badge bg-secondary';
+            badge.textContent = '未配置';
+        }
+    } catch (e) {
+        console.error('加载百度OCR配置失败:', e);
+    }
+}
+
+function initBaiduOcrForm() {
+    document.getElementById('baiduOcrForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const payload = {
+            api_key: document.getElementById('baiduOcrApiKey').value.trim(),
+            secret_key: document.getElementById('baiduOcrSecretKey').value.trim(),
+        };
+        if (!payload.api_key && !payload.secret_key) {
+            alert('请填写 API Key 或 Secret Key'); return;
+        }
+        try {
+            const response = await fetch('/api/v1/settings/baidu-ocr/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (response.ok) {
+                showToast(data.message, 'success');
+                document.getElementById('baiduOcrApiKey').value = '';
+                document.getElementById('baiduOcrSecretKey').value = '';
+                loadBaiduOcrConfig();
+            } else {
+                alert('保存失败: ' + data.error);
+            }
+        } catch (e) {
+            alert('保存失败: ' + e.message);
+        }
+    });
+
+    document.getElementById('baiduOcrTestBtn').addEventListener('click', async function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>测试中...';
+        try {
+            const response = await fetch('/api/v1/settings/baidu-ocr/test/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            const data = await response.json();
+            const statusEl = document.getElementById('baiduOcrStatus');
+            if (response.ok) {
+                statusEl.innerHTML = `<div class="text-success small"><i class="bi bi-check-circle-fill me-1"></i>${data.message}</div>`;
+            } else {
+                statusEl.innerHTML = `<div class="text-danger small"><i class="bi bi-x-circle-fill me-1"></i>${data.error}</div>`;
+            }
+        } catch (e) {
+            alert('测试失败: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-plug me-1"></i>测试连接';
+        }
+    });
+}
+
+// ========== 本地引擎安装 ==========
+async function installEngine(engine) {
+    const modal = new bootstrap.Modal(document.getElementById('installModal'));
+    const progressBar = document.getElementById('installProgress');
+    const message = document.getElementById('installMessage');
+    const output = document.getElementById('installOutput');
+
+    progressBar.style.width = '10%';
+    progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+    message.textContent = '正在安装 ' + engine + '...';
+    output.textContent = '';
+    modal.show();
+
+    try {
+        const response = await fetch('/api/v1/settings/ocr-engines/install/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ engine: engine })
+        });
+
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            throw new Error('服务器返回非JSON响应 (' + response.status + ')');
+        }
+
+        if (response.ok && data.status === 'success') {
+            progressBar.style.width = '100%';
+            progressBar.className = 'progress-bar bg-success';
+            message.textContent = '安装成功！' + data.message;
+            output.textContent = data.log || '';
+
+            const delay = data.needs_refresh ? 3000 : 2000;
+            if (data.needs_refresh) {
+                message.innerHTML = '安装成功！' + data.message +
+                    '<br><br><strong class="text-warning">请刷新页面(F5)以更新引擎状态。</strong>';
+            }
+            setTimeout(() => {
+                modal.hide();
+                loadEngineStatus();
+                if (data.needs_refresh) {
+                    if (confirm('安装成功！点击"确定"刷新页面以更新引擎状态。')) {
+                        location.reload();
+                    }
+                }
+            }, delay);
+        } else {
+            progressBar.style.width = '100%';
+            progressBar.className = 'progress-bar bg-danger';
+            message.textContent = '安装失败: ' + (data.error || '未知错误');
+            output.textContent = data.log || '';
+        }
+    } catch (error) {
+        progressBar.style.width = '100%';
+        progressBar.className = 'progress-bar bg-danger';
+        message.textContent = '安装失败: ' + (error.message || '网络错误');
+        console.error('安装错误:', error);
+    }
+}
+
+// ========== 工具函数 ==========
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function getCsrfToken() {
+    return getCookie('csrftoken') || '';
+}
+
+function showToast(message, type) {
+    // 简单的 toast 提示
+    const toastHtml = `
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
+            <div class="toast show align-items-center text-bg-${type === 'success' ? 'success' : 'danger'} border-0"
+                 role="alert">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto"
+                            data-bs-dismiss="toast"></button>
+                </div>
+            </div>
+        </div>
+    `;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = toastHtml;
+    document.body.appendChild(wrapper);
+    setTimeout(() => wrapper.remove(), 3000);
+}
+</script>
+{% endblock %}

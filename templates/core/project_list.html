@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}项目管理 - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li>
+<li class="breadcrumb-item active">项目管理</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">项目管理</h2>
+        <p class="text-muted mb-0">管理FAI首件检验项目</p>
+    </div>
+    <a href="{% url 'project_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>新建项目
+    </a>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-primary text-white">
+                <i class="bi bi-folder"></i>
+            </div>
+            <div>
+                <h3 class="mb-0">{{ projects.count }}</h3>
+                <small class="text-muted">总项目数</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-warning text-white">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div>
+                <h3 class="mb-0">{{ projects|length }}</h3>
+                <small class="text-muted">进行中</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-success text-white">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div>
+                <h3 class="mb-0">0</h3>
+                <small class="text-muted">已完成</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-info text-white">
+                <i class="bi bi-clock"></i>
+            </div>
+            <div>
+                <h3 class="mb-0">0</h3>
+                <small class="text-muted">平均耗时</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 项目列表 -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-list me-2"></i>项目列表
+    </div>
+    <div class="card-body p-0">
+        {% if projects %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>项目编号</th>
+                        <th>项目名称</th>
+                        <th>状态</th>
+                        <th>进度</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for project in projects %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'project_detail' project.pk %}" class="text-decoration-none">
+                                <strong>{{ project.project_number }}</strong>
+                            </a>
+                        </td>
+                        <td>{{ project.project_name }}</td>
+                        <td>
+                            <span class="badge bg-{% if project.status == 'COMPLETED' %}success{% elif project.status == 'IN_PROGRESS' %}warning{% elif project.status == 'PENDING_REVIEW' %}info{% else %}secondary{% endif %}">
+                                {{ project.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="progress" style="height: 20px;">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ project.progress_percentage }}%;">
+                                    {{ project.progress_percentage }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ project.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'project_detail' project.pk %}" class="btn btn-outline-primary" title="查看">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'project_edit' project.pk %}" class="btn btn-outline-success" title="编辑">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form method="post" action="{% url 'project_delete' project.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除吗？');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="删除">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-folder display-4 text-muted d-block mb-3"></i>
+            <p class="text-muted mb-3">暂无项目</p>
+            <a href="{% url 'project_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>创建第一个项目
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

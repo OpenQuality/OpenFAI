@@ -1,0 +1,449 @@
+{% extends 'base.html' %}
+
+{% block title %}检验计划详情 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'plan_list' %}">检验计划</a></li>
+<li class="breadcrumb-item active">{{ plan.plan_number }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">{{ plan.plan_name }}</h2>
+        <p class="text-muted mb-0">{{ plan.plan_number }} | {{ plan.part.part_number }}</p>
+    </div>
+    <div class="d-flex gap-2">
+        <span class="badge bg-{% if plan.status == 'ACTIVE' %}success{% elif plan.status == 'PENDING_REVIEW' %}warning{% else %}secondary{% endif %} fs-6">
+            {{ plan.get_status_display }}
+        </span>
+        <a href="{% url 'plan_edit' plan.pk %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-pencil me-1"></i>编辑
+        </a>
+        <form method="post" action="{% url 'plan_delete' plan.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除这个检验计划吗？');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger btn-sm">
+                <i class="bi bi-trash me-1"></i>删除
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <!-- 基本信息 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>计划信息
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label class="text-muted small">计划编号</label>
+                        <p class="mb-0 fw-bold">{{ plan.plan_number }}</p>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="text-muted small">零件编号</label>
+                        <p class="mb-0"><a href="{% url 'part_detail' plan.part.pk %}">{{ plan.part.part_number }}</a></p>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="text-muted small">标准类型</label>
+                        <p class="mb-0"><span class="badge bg-info">{{ plan.get_standard_display }}</span></p>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="text-muted small">样本数量</label>
+                        <p class="mb-0">{{ plan.sample_size }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 检验特性列表 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-check me-2"></i>检验特性清单 ({{ characteristics.count }}项)</span>
+                <div>
+                    {% if plan.status == 'DRAFT' %}
+                    <button class="btn btn-sm btn-success" onclick="generateFromCAD()">
+                        <i class="bi bi-cpu me-1"></i>从CAD生成
+                    </button>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addCharModal">
+                        <i class="bi bi-plus me-1"></i>添加特性
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% if no_tolerance_count > 0 %}
+            <div class="alert alert-warning rounded-0 mb-0 py-2 px-3 small">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                有 <strong>{{ no_tolerance_count }}</strong> 个特性未设置任何公差（上下公差均为空，通常是图纸未识别到明确公差标注），
+                这些特性<strong>无法计算Cp/Cpk</strong>。请点击对应行的编辑按钮补充公差，或确认其确实无公差要求。
+            </div>
+            {% endif %}
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 60px;">序号</th>
+                                <th>特性编号</th>
+                                <th>特性名称</th>
+                                <th>类型</th>
+                                <th>理论值</th>
+                                <th>上公差</th>
+                                <th>下公差</th>
+                                <th>关键</th>
+                                <th>测量方法</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for char in characteristics %}
+                            <tr{% if char.upper_tolerance is None and char.lower_tolerance is None %} class="table-warning"{% endif %}>
+                                <td>{{ char.sequence }}</td>
+                                <td><strong>{{ char.char_number }}</strong></td>
+                                <td>{{ char.char_name }}</td>
+                                <td><span class="badge bg-secondary">{{ char.get_char_type_display }}</span></td>
+                                <td>{{ char.nominal_value }} {{ char.unit }}</td>
+                                {% if char.upper_tolerance is None and char.lower_tolerance is None %}
+                                <td colspan="2" class="text-center">
+                                    <span class="badge bg-warning text-dark" title="未设置公差，无法计算Cp/Cpk">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>未设置公差
+                                    </span>
+                                </td>
+                                {% else %}
+                                <td class="text-success">{% if char.upper_tolerance is not None %}+{{ char.upper_tolerance }}{% else %}<span class="text-muted">无上限</span>{% endif %}</td>
+                                <td class="text-danger">{% if char.lower_tolerance is not None %}{{ char.lower_tolerance }}{% else %}<span class="text-muted">无下限</span>{% endif %}</td>
+                                {% endif %}
+                                <td>
+                                    {% if char.is_critical %}
+                                    <span class="badge bg-danger">KC</span>
+                                    {% endif %}
+                                </td>
+                                <td><small>{{ char.get_measurement_method_display }}</small></td>
+                                <td>
+                                    {% if plan.status == 'DRAFT' %}
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-secondary" title="编辑"
+                                            onclick="editCharacteristic({
+                                                id: '{{ char.id }}',
+                                                char_number: '{{ char.char_number|escapejs }}',
+                                                char_name: '{{ char.char_name|escapejs }}',
+                                                char_type: '{{ char.char_type }}',
+                                                nominal_value: '{{ char.nominal_value }}',
+                                                upper_tolerance: {% if char.upper_tolerance is not None %}'{{ char.upper_tolerance }}'{% else %}null{% endif %},
+                                                lower_tolerance: {% if char.lower_tolerance is not None %}'{{ char.lower_tolerance }}'{% else %}null{% endif %},
+                                                unit: '{{ char.unit|escapejs }}',
+                                                measurement_method: '{{ char.measurement_method }}',
+                                                is_critical: {{ char.is_critical|yesno:'true,false' }},
+                                                sequence: '{{ char.sequence }}'
+                                            })"><i class="bi bi-pencil"></i></button>
+                                        <button type="button" class="btn btn-outline-danger" title="删除" onclick="deleteCharacteristic('{{ char.id }}')"><i class="bi bi-trash"></i></button>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="10" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox display-4 d-block mb-2"></i>
+                                    暂无检验特性，点击"从CAD生成"或"添加特性"
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 操作按钮 -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <a href="{% url 'plan_list' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>返回列表
+                        </a>
+                        <a href="{% url 'part_detail' plan.part.pk %}" class="btn btn-outline-primary ms-2">
+                            <i class="bi bi-box me-1"></i>查看零件
+                        </a>
+                    </div>
+                    <div>
+                        {% if plan.status == 'DRAFT' %}
+                        <form method="post" action="{% url 'plan_detail' plan.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="submit_review">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="bi bi-send me-1"></i>提交审核
+                            </button>
+                        </form>
+                        {% elif plan.status == 'PENDING_REVIEW' %}
+                        {% if user.is_staff or user.is_superuser %}
+                        <form method="post" action="{% url 'plan_detail' plan.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="approve">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check me-1"></i>批准
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'plan_detail' plan.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="reject">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-x me-1"></i>拒绝
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted"><i class="bi bi-hourglass me-1"></i>等待审核中...</span>
+                        {% endif %}
+                        {% elif plan.status == 'ACTIVE' %}
+                        <a href="{% url 'batch_create' %}?plan={{ plan.pk }}" class="btn btn-success">
+                            <i class="bi bi-rulers me-1"></i>创建测量批次
+                        </a>
+                        <a href="{% url 'report_create' %}?part={{ plan.part.pk }}" class="btn btn-primary ms-2">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>生成报告
+                        </a>
+                        {% elif plan.status == 'COMPLETED' %}
+                        <a href="{% url 'report_create' %}?part={{ plan.part.pk }}" class="btn btn-primary">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>生成报告
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 测量批次列表 -->
+        {% if plan.batches.exists %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="bi bi-clipboard-data me-2"></i>测量批次
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>批次号</th>
+                            <th>状态</th>
+                            <th>测量数量</th>
+                            <th>测量人</th>
+                            <th>测量时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for batch in plan.batches.all %}
+                        <tr>
+                            <td><a href="{% url 'batch_detail' batch.pk %}">{{ batch.batch_number }}</a></td>
+                            <td><span class="badge bg-{% if batch.status == 'COMPLETED' %}success{% elif batch.status == 'IN_PROGRESS' %}warning{% else %}secondary{% endif %}">{{ batch.get_status_display }}</span></td>
+                            <td>{{ batch.total_measurements }}</td>
+                            <td>{{ batch.measured_by.username|default:"-" }}</td>
+                            <td>{{ batch.measured_at|date:"Y-m-d H:i"|default:"-" }}</td>
+                            <td>
+                                <a href="{% url 'batch_detail' batch.pk %}" class="btn btn-sm btn-outline-primary">查看</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 添加/编辑特性模态框 -->
+<div class="modal fade" id="addCharModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="charModalTitle">添加检验特性</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="charForm">
+                <div class="modal-body">
+                    <input type="hidden" id="char_id" value="">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">特性编号 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="char_number" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">特性名称 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="char_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">特性类型 <span class="text-danger">*</span></label>
+                            <select class="form-select" id="char_type" required>
+                                <option value="DIMENSION">尺寸</option>
+                                <option value="ANGULAR">角度</option>
+                                <option value="GD_T">形位公差</option>
+                                <option value="SURFACE">表面粗糙度</option>
+                                <option value="HARDNESS">硬度</option>
+                                <option value="OTHER">其他</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">测量方法</label>
+                            <select class="form-select" id="measurement_method">
+                                <option value="CMM">三坐标测量</option>
+                                <option value="OPTICAL">光学测量</option>
+                                <option value="MECHANICAL">机械测量</option>
+                                <option value="VISUAL">目视检查</option>
+                                <option value="LASER">激光扫描</option>
+                                <option value="OTHER">其他</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">理论值 <span class="text-danger">*</span></label>
+                            <input type="number" step="any" class="form-control" id="nominal_value" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">上公差</label>
+                            <input type="number" step="any" class="form-control" id="upper_tolerance" value="0" placeholder="留空=无上限">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">下公差</label>
+                            <input type="number" step="any" class="form-control" id="lower_tolerance" value="0" placeholder="留空=无下限">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">单位</label>
+                            <input type="text" class="form-control" id="unit" value="mm">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">序号</label>
+                            <input type="number" class="form-control" id="sequence" value="1">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_critical">
+                                <label class="form-check-label" for="is_critical">关键特性 (KC)</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function generateFromCAD() {
+    if (confirm('确定要从CAD解析结果生成检验特性吗？')) {
+        // 调用API生成
+        fetch('/api/v1/inspections/plans/{{ plan.pk }}/generate_from_cad/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('生成失败: ' + data.error);
+            }
+        });
+    }
+}
+
+const charModalEl = document.getElementById('addCharModal');
+const charModal = bootstrap.Modal.getOrCreateInstance(charModalEl);
+
+function resetCharForm() {
+    document.getElementById('charModalTitle').textContent = '添加检验特性';
+    document.getElementById('char_id').value = '';
+    document.getElementById('char_number').value = '';
+    document.getElementById('char_name').value = '';
+    document.getElementById('char_type').value = 'DIMENSION';
+    document.getElementById('measurement_method').value = 'CMM';
+    document.getElementById('nominal_value').value = '';
+    document.getElementById('upper_tolerance').value = '0';
+    document.getElementById('lower_tolerance').value = '0';
+    document.getElementById('unit').value = 'mm';
+    document.getElementById('sequence').value = '1';
+    document.getElementById('is_critical').checked = false;
+}
+
+function editCharacteristic(data) {
+    document.getElementById('charModalTitle').textContent = '编辑检验特性';
+    document.getElementById('char_id').value = data.id;
+    document.getElementById('char_number').value = data.char_number;
+    document.getElementById('char_name').value = data.char_name;
+    document.getElementById('char_type').value = data.char_type;
+    document.getElementById('measurement_method').value = data.measurement_method;
+    document.getElementById('nominal_value').value = data.nominal_value;
+    document.getElementById('upper_tolerance').value = data.upper_tolerance ?? '';
+    document.getElementById('lower_tolerance').value = data.lower_tolerance ?? '';
+    document.getElementById('unit').value = data.unit;
+    document.getElementById('sequence').value = data.sequence;
+    document.getElementById('is_critical').checked = data.is_critical;
+    charModal.show();
+}
+
+function deleteCharacteristic(id) {
+    if (!confirm('确定要删除该检验特性吗？')) return;
+    fetch(`/api/v1/inspections/characteristics/${id}/`, {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    }).then(response => {
+        if (response.ok) {
+            location.reload();
+        } else {
+            alert('删除失败');
+        }
+    });
+}
+
+document.querySelector('button[data-bs-target="#addCharModal"]')?.addEventListener('click', resetCharForm);
+
+document.getElementById('charForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const id = document.getElementById('char_id').value;
+    const upperToleranceRaw = document.getElementById('upper_tolerance').value;
+    const lowerToleranceRaw = document.getElementById('lower_tolerance').value;
+    const payload = {
+        plan: '{{ plan.pk }}',
+        char_number: document.getElementById('char_number').value,
+        char_name: document.getElementById('char_name').value,
+        char_type: document.getElementById('char_type').value,
+        measurement_method: document.getElementById('measurement_method').value,
+        nominal_value: document.getElementById('nominal_value').value,
+        upper_tolerance: upperToleranceRaw === '' ? null : upperToleranceRaw,
+        lower_tolerance: lowerToleranceRaw === '' ? null : lowerToleranceRaw,
+        unit: document.getElementById('unit').value,
+        sequence: document.getElementById('sequence').value,
+        is_critical: document.getElementById('is_critical').checked,
+    };
+
+    const url = id ? `/api/v1/inspections/characteristics/${id}/` : '/api/v1/inspections/characteristics/';
+    const method = id ? 'PATCH' : 'POST';
+
+    fetch(url, {
+        method: method,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    }).then(async response => {
+        const result = await response.json().catch(() => ({}));
+        if (response.ok) {
+            charModal.hide();
+            location.reload();
+        } else {
+            alert('保存失败：' + JSON.stringify(result));
+        }
+    });
+});
+</script>
+{% endblock %}

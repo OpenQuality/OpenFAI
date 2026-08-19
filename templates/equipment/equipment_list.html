@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+
+{% block title %}设备集成 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li>
+<li class="breadcrumb-item active">设备集成</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">设备集成</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEquipmentModal">
+        <i class="bi bi-plus-circle me-2"></i>添加设备
+    </button>
+</div>
+
+<div class="row">
+    {% for equipment in equipment_list %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-hdd me-2"></i>
+                    {{ equipment.equipment_name }}
+                </h5>
+                <span class="badge bg-{% if equipment.status == 'ACTIVE' %}success{% elif equipment.status == 'IDLE' %}warning{% else %}secondary{% endif %}">
+                    {{ equipment.get_status_display }}
+                </span>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">设备编号</dt>
+                    <dd class="col-sm-8">{{ equipment.equipment_id }}</dd>
+                    
+                    <dt class="col-sm-4">设备类型</dt>
+                    <dd class="col-sm-8">{{ equipment.get_equipment_type_display }}</dd>
+                    
+                    <dt class="col-sm-4">制造商</dt>
+                    <dd class="col-sm-8">{{ equipment.manufacturer|default:"-" }}</dd>
+                    
+                    <dt class="col-sm-4">型号</dt>
+                    <dd class="col-sm-8">{{ equipment.model|default:"-" }}</dd>
+                    
+                    <dt class="col-sm-4">IP地址</dt>
+                    <dd class="col-sm-8">{{ equipment.ip_address|default:"-" }}</dd>
+                    
+                    <dt class="col-sm-4">最后校准</dt>
+                    <dd class="col-sm-8">{{ equipment.last_calibration|date:"Y-m-d"|default:"-" }}</dd>
+                </dl>
+            </div>
+            <div class="card-footer">
+                <div class="btn-group w-100">
+                    <button class="btn btn-outline-primary btn-sm" onclick="connectEquipment('{{ equipment.id }}')">
+                        <i class="bi bi-plug me-1"></i>连接
+                    </button>
+                    <button class="btn btn-outline-info btn-sm" onclick="viewDetails('{{ equipment.id }}')">
+                        <i class="bi bi-eye me-1"></i>详情
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="importData('{{ equipment.id }}')">
+                        <i class="bi bi-upload me-1"></i>导入数据
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-hdd display-4 text-muted d-block mb-3"></i>
+                <h5 class="text-muted">暂无设备</h5>
+                <p class="text-muted">点击"添加设备"按钮添加测量设备</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEquipmentModal">
+                    <i class="bi bi-plus-circle me-2"></i>添加设备
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- 添加设备模态框 -->
+<div class="modal fade" id="addEquipmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加设备</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="equipmentForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">设备编号 *</label>
+                        <input type="text" class="form-control" name="equipment_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">设备名称 *</label>
+                        <input type="text" class="form-control" name="equipment_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">设备类型 *</label>
+                        <select class="form-select" name="equipment_type" required>
+                            <option value="CMM">三坐标测量机</option>
+                            <option value="OPTICAL">光学测量仪</option>
+                            <option value="LASER">激光扫描仪</option>
+                            <option value="VISION">影像测量仪</option>
+                            <option value="MECHANICAL">机械测量设备</option>
+                            <option value="OTHER">其他</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">制造商</label>
+                        <input type="text" class="form-control" name="manufacturer">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">型号</label>
+                        <input type="text" class="form-control" name="model">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">IP地址</label>
+                        <input type="text" class="form-control" name="ip_address" placeholder="192.168.1.100">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveEquipment()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 导入数据模态框 -->
+<div class="modal fade" id="importDataModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">导入测量数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="importForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="equipment_id" id="importEquipmentId">
+                    <div class="mb-3">
+                        <label class="form-label">数据文件</label>
+                        <input type="file" class="form-control" name="data_file" accept=".csv,.xlsx,.txt">
+                        <div class="form-text">支持 CSV、Excel、TXT 格式</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="uploadData()">上传</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 从模板获取CSRF Token
+const csrftoken = document.querySelector('[name="csrfmiddlewaretoken"]')?.value || '';
+
+// 连接设备
+function connectEquipment(equipmentId) {
+    fetch(`/api/v1/equipment/${equipmentId}/connect/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('设备连接成功！');
+            location.reload();
+        } else {
+            alert('连接失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(error => {
+        alert('请求失败: ' + error);
+    });
+}
+
+// 查看详情
+function viewDetails(equipmentId) {
+    window.location.href = `/equipment/${equipmentId}/`;
+}
+
+// 导入数据
+function importData(equipmentId) {
+    document.getElementById('importEquipmentId').value = equipmentId;
+    new bootstrap.Modal(document.getElementById('importDataModal')).show();
+}
+
+// 上传数据
+function uploadData() {
+    const formData = new FormData(document.getElementById('importForm'));
+    const equipmentId = formData.get('equipment_id');
+    
+    fetch(`/api/v1/equipment/imports/upload/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(`成功导入 ${data.imported_records} 条数据！`);
+            bootstrap.Modal.getInstance(document.getElementById('importDataModal')).hide();
+        } else {
+            alert('导入失败: ' + (data.error || '未知错误'));
+        }
+    })
+    .catch(error => {
+        alert('请求失败: ' + error);
+    });
+}
+
+// 保存设备
+function saveEquipment() {
+    const form = document.getElementById('equipmentForm');
+    const formData = new FormData(form);
+    const data = {};
+    formData.forEach((value, key) => {
+        if (key !== 'csrfmiddlewaretoken') {
+            // ip_address等可空字段：空字符串需转为null，否则DRF会报"不能为空"
+            data[key] = (value === '' && key === 'ip_address') ? null : value;
+        }
+    });
+
+    fetch('/api/v1/equipment/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.id) {
+            alert('设备添加成功！');
+            location.reload();
+        } else {
+            alert('添加失败: ' + JSON.stringify(data));
+        }
+    })
+    .catch(error => {
+        alert('添加失败: ' + error);
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}{{ requirement.requirement_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'control_requirement_list' %}">控制要求</a></li>
+<li class="breadcrumb-item active">{{ requirement.requirement_id }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-shield-plus me-2"></i>{{ requirement.requirement_name }}</h2>
+            <small class="text-muted">要求编号: {{ requirement.requirement_id }}</small>
+        </div>
+        <div>
+            <a href="{% url 'control_requirement_edit' requirement.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> 编辑
+            </a>
+            <a href="{% url 'control_requirement_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> 返回
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">基本信息</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>要求编号</th>
+                            <td>{{ requirement.requirement_id }}</td>
+                        </tr>
+                        <tr>
+                            <th>控制类型</th>
+                            <td>
+                                {% if requirement.control_type == 'DIMENSION' %}尺寸控制
+                                {% elif requirement.control_type == 'SURFACE' %}表面质量
+                                {% elif requirement.control_type == 'MATERIAL' %}材料要求
+                                {% elif requirement.control_type == 'GEOMETRY' %}形位公差
+                                {% elif requirement.control_type == 'PROCESS' %}工艺要求
+                                {% elif requirement.control_type == 'ASSEMBLY' %}装配要求
+                                {% elif requirement.control_type == 'SAFETY' %}安全要求
+                                {% else %}其他{% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>风险等级</th>
+                            <td>
+                                {% if requirement.risk_level == 'HIGH' %}
+                                <span class="badge bg-danger">高风险</span>
+                                {% elif requirement.risk_level == 'MEDIUM' %}
+                                <span class="badge bg-warning">中风险</span>
+                                {% else %}
+                                <span class="badge bg-success">低风险</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>关键特性</th>
+                            <td>
+                                {% if requirement.is_key_characteristic %}
+                                <span class="badge bg-primary">是</span>
+                                {% else %}否{% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>关联零件</th>
+                            <td>
+                                {% if requirement.part %}
+                                <a href="{% url 'part_detail' requirement.part.pk %}">
+                                    {{ requirement.part.part_number }}
+                                </a>
+                                {% else %}-{% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">规格限</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>标称值</th>
+                            <td>{{ requirement.nominal_value|default:"-" }} {{ requirement.unit }}</td>
+                        </tr>
+                        <tr>
+                            <th>上限 (USL)</th>
+                            <td>{{ requirement.upper_limit|default:"-" }} {{ requirement.unit }}</td>
+                        </tr>
+                        <tr>
+                            <th>下限 (LSL)</th>
+                            <td>{{ requirement.lower_limit|default:"-" }} {{ requirement.unit }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">检验方法</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>检测方法</th>
+                            <td>{{ requirement.inspection_method|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>检测工具</th>
+                            <td>{{ requirement.inspection_tool|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>检测频次</th>
+                            <td>{{ requirement.inspection_frequency|default:"-" }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">要求描述</h5>
+                </div>
+                <div class="card-body">
+                    {{ requirement.description|default:"暂无描述"|linebreaks }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

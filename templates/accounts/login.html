@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}登录 - FAI质量评审系统{% endblock %}
+
+{% block login_content %}
+<div class="login-container">
+    <div class="login-card">
+        <div class="login-logo">
+            <i class="bi bi-shield-check"></i>
+            <h2>FAI质量评审系统</h2>
+            <p class="text-white-50 mt-2">首件检验自动化平台</p>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                {% if error %}
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+                </div>
+                {% endif %}
+                
+                <form method="post" action="{% url 'login' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            <input type="text" class="form-control" name="username" placeholder="请输入用户名" value="{{ username|default:'' }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">密码</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <input type="password" class="form-control" name="password" placeholder="请输入密码" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="remember" name="remember">
+                        <label class="form-check-label" for="remember">记住我</label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>登录
+                    </button>
+                </form>
+                
+                <hr class="my-4">
+                
+                <p class="text-muted text-center small mb-0">
+                    演示账号: admin / admin123
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

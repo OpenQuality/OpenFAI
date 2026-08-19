@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block title %}不合格品处理 - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li>
+<li class="breadcrumb-item active">不合格品处理</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">不合格品处理</h2>
+        <p class="text-muted mb-0">管理不合格品报告和处理措施</p>
+    </div>
+    <a href="{% url 'ncr_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>新建NCR
+    </a>
+</div>
+
+<!-- 筛选和统计 -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-danger text-white">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div>
+                <h3 class="mb-0">{{ ncrs.count }}</h3>
+                <small class="text-muted">总报告数</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-warning text-white">
+                <i class="bi bi-hourglass-split"></i>
+            </div>
+            <div>
+                <h3 class="mb-0">0</h3>
+                <small class="text-muted">待处理</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-info text-white">
+                <i class="bi bi-gear"></i>
+            </div>
+            <div>
+                <h3 class="mb-0">0</h3>
+                <small class="text-muted">处理中</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-success text-white">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div>
+                <h3 class="mb-0">0</h3>
+                <small class="text-muted">已关闭</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选栏 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">全部状态</option>
+                    <option value="OPEN">待处理</option>
+                    <option value="IN_PROGRESS">处理中</option>
+                    <option value="PENDING_REVIEW">待审核</option>
+                    <option value="CLOSED">已关闭</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search me-1"></i>筛选
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- NCR列表 -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-list me-2"></i>不合格品报告列表
+    </div>
+    <div class="card-body p-0">
+        {% if ncrs %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>NCR编号</th>
+                        <th>品名</th>
+                        <th>问题类型</th>
+                        <th>状态</th>
+                        <th>检验人</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ncr in ncrs %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'ncr_detail' ncr.pk %}" class="text-decoration-none">
+                                <strong>{{ ncr.ncr_number }}</strong>
+                            </a>
+                        </td>
+                        <td>{{ ncr.product_name }}</td>
+                        <td>
+                            <span class="badge bg-secondary">{{ ncr.get_problem_type_display }}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if ncr.status == 'CLOSED' %}success{% elif ncr.status == 'IN_PROGRESS' %}warning{% elif ncr.status == 'PENDING_REVIEW' %}info{% else %}danger{% endif %}">
+                                {{ ncr.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ ncr.inspector|default:"-" }}</td>
+                        <td>{{ ncr.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'ncr_detail' ncr.pk %}" class="btn btn-outline-primary" title="查看">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{% url 'ncr_edit' ncr.pk %}" class="btn btn-outline-success" title="编辑">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form method="post" action="{% url 'ncr_delete' ncr.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除吗？');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="删除">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="bi bi-clipboard-x display-4 text-muted d-block mb-3"></i>
+            <p class="text-muted mb-3">暂无不合格品报告</p>
+            <a href="{% url 'ncr_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>创建第一个报告
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

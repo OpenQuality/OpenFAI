@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}编辑控制要求{% else %}新建控制要求{% endif %}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'control_requirement_list' %}">控制要求</a></li>
+<li class="breadcrumb-item active">{% if object %}编辑{% else %}新建{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-shield-plus me-2"></i>{% if object %}编辑控制要求{% else %}新建控制要求{% endif %}</h2>
+        <a href="{% url 'control_requirement_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> 返回
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong>表单填写有误，请检查以下字段：</strong>
+                    <ul class="mb-0">
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                            <li>{{ field.label }}：{{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">零件</label>
+                        <select name="part" class="form-select">
+                            <option value="">-- 选择零件 --</option>
+                            {% for part in parts %}
+                            <option value="{{ part.pk }}" {% if form.part.value|stringformat:"s" == part.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ part.part_number }} - {{ part.part_name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">要求编号 <span class="text-danger">*</span></label>
+                        <input type="text" name="requirement_id" class="form-control" required
+                               value="{{ form.requirement_id.value|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">要求名称 <span class="text-danger">*</span></label>
+                        <input type="text" name="requirement_name" class="form-control" required
+                               value="{{ form.requirement_name.value|default:'' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">控制类型</label>
+                        <select name="control_type" class="form-select">
+                            <option value="DIMENSION" {% if form.control_type.value == 'DIMENSION' %}selected{% endif %}>尺寸控制</option>
+                            <option value="SURFACE" {% if form.control_type.value == 'SURFACE' %}selected{% endif %}>表面质量</option>
+                            <option value="MATERIAL" {% if form.control_type.value == 'MATERIAL' %}selected{% endif %}>材料要求</option>
+                            <option value="GEOMETRY" {% if form.control_type.value == 'GEOMETRY' %}selected{% endif %}>形位公差</option>
+                            <option value="PROCESS" {% if form.control_type.value == 'PROCESS' %}selected{% endif %}>工艺要求</option>
+                            <option value="ASSEMBLY" {% if form.control_type.value == 'ASSEMBLY' %}selected{% endif %}>装配要求</option>
+                            <option value="SAFETY" {% if form.control_type.value == 'SAFETY' %}selected{% endif %}>安全要求</option>
+                            <option value="OTHER" {% if form.control_type.value == 'OTHER' %}selected{% endif %}>其他</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">风险等级</label>
+                        <select name="risk_level" class="form-select">
+                            <option value="HIGH" {% if form.risk_level.value == 'HIGH' %}selected{% endif %}>高风险</option>
+                            <option value="MEDIUM" {% if form.risk_level.value == 'MEDIUM' %}selected{% endif %}>中风险</option>
+                            <option value="LOW" {% if form.risk_level.value == 'LOW' %}selected{% endif %}>低风险</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">是否关键特性</label>
+                        <div class="form-check mt-2">
+                            <input type="checkbox" name="is_key_characteristic" class="form-check-input" id="isKey"
+                                   {% if form.is_key_characteristic.value %}checked{% endif %}>
+                            <label class="form-check-label" for="isKey">是关键特性</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">标称值</label>
+                        <input type="number" step="0.001" name="nominal_value" class="form-control"
+                               value="{{ form.nominal_value.value|default:'' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">上限 (USL)</label>
+                        <input type="number" step="0.001" name="upper_limit" class="form-control"
+                               value="{{ form.upper_limit.value|default:'' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">下限 (LSL)</label>
+                        <input type="number" step="0.001" name="lower_limit" class="form-control"
+                               value="{{ form.lower_limit.value|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">检测方法</label>
+                        <input type="text" name="inspection_method" class="form-control"
+                               value="{{ form.inspection_method.value|default:'' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">检测工具</label>
+                        <input type="text" name="inspection_tool" class="form-control"
+                               value="{{ form.inspection_tool.value|default:'' }}">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">要求描述 <span class="text-danger">*</span></label>
+                    <textarea name="description" class="form-control" rows="4" required>{{ form.description.value|default:'' }}</textarea>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> 保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

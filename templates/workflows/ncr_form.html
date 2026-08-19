@@ -1,0 +1,212 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}编辑不合格品报告{% else %}创建不合格品报告{% endif %} - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'ncr_list' %}">不合格品处理</a></li>
+<li class="breadcrumb-item active">{% if is_edit %}编辑{% else %}创建{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-exclamation-triangle me-2"></i>{% if is_edit %}编辑不合格品报告{% else %}创建不合格品报告{% endif %}
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="ncrForm">
+                    {% csrf_token %}
+                    
+                    <!-- 零件选择 -->
+                    <h6 class="text-primary mb-3"><i class="bi bi-box-seam me-2"></i>关联零件</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">选择零件</label>
+                            <select class="form-select" name="part" id="partSelect">
+                                <option value="">请选择零件（可选）</option>
+                                {% for part in parts %}
+                                <option value="{{ part.pk }}" 
+                                    data-part-number="{{ part.part_number }}"
+                                    data-part-name="{{ part.part_name }}"
+                                    data-specification="{{ part.material }}"
+                                    data-batch-number="{{ part.batch_serial_number|default:'' }}"
+                                    data-department="{{ part.department|default:'' }}"
+                                    {% if object.part.pk == part.pk %}selected{% endif %}>
+                                    {{ part.part_number }} - {{ part.part_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">选择零件后自动填充产品信息</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">测量记录</label>
+                            <select class="form-select" name="measurement_record" id="measurementRecordSelect">
+                                <option value="">请选择测量记录（可选）</option>
+                                {% for record in measurement_records %}
+                                <option value="{{ record.pk }}" 
+                                    data-part-id="{{ record.batch.plan.part.pk }}"
+                                    {% if object.measurement_record.pk == record.pk %}selected{% endif %}>
+                                    {{ record.batch.batch_number }} - {{ record.characteristic.char_name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <!-- 产品信息 -->
+                    <h6 class="text-primary mb-3"><i class="bi bi-box-seam me-2"></i>产品信息</h6>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">品名 *</label>
+                            <input type="text" class="form-control" name="product_name" id="productName" value="{{ object.product_name|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">规格</label>
+                            <input type="text" class="form-control" name="specification" id="specification" value="{{ object.specification|default:'' }}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">批次号</label>
+                            <input type="text" class="form-control" name="batch_number" id="batchNumber" value="{{ object.batch_number|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">科号</label>
+                            <input type="text" class="form-control" name="department_code" id="departmentCode" value="{{ object.department_code|default:'' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">交货日期</label>
+                            <input type="date" class="form-control" name="delivery_date" value="{{ object.delivery_date|default:''|date:'Y-m-d' }}">
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <!-- 问题信息 -->
+                    <h6 class="text-primary mb-3"><i class="bi bi-exclamation-triangle me-2"></i>问题信息</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">问题类型 *</label>
+                            <select class="form-select" name="problem_type" required>
+                                <option value="">请选择...</option>
+                                <option value="DIMENSION" {% if object.problem_type == 'DIMENSION' %}selected{% endif %}>尺寸超差</option>
+                                <option value="APPEARANCE" {% if object.problem_type == 'APPEARANCE' %}selected{% endif %}>外观缺陷</option>
+                                <option value="MATERIAL" {% if object.problem_type == 'MATERIAL' %}selected{% endif %}>材料问题</option>
+                                <option value="PROCESS" {% if object.problem_type == 'PROCESS' %}selected{% endif %}>工艺问题</option>
+                                <option value="ASSEMBLY" {% if object.problem_type == 'ASSEMBLY' %}selected{% endif %}>装配问题</option>
+                                <option value="OTHER" {% if object.problem_type == 'OTHER' %}selected{% endif %}>其他</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">不良现象</label>
+                            <input type="text" class="form-control" name="defect_phenomenon" value="{{ object.defect_phenomenon|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">问题描述 *</label>
+                        <textarea class="form-control" name="problem_description" rows="4" required 
+                                  placeholder="请详细描述问题情况...">{{ object.problem_description|default:'' }}</textarea>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <!-- 来源信息 -->
+                    <h6 class="text-primary mb-3"><i class="bi bi-truck me-2"></i>来源信息</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">供应方式</label>
+                            <select class="form-select" name="supply_method">
+                                <option value="INTERNAL" {% if object.supply_method == 'INTERNAL' %}selected{% endif %}>内部加工</option>
+                                <option value="EXTERNAL" {% if object.supply_method == 'EXTERNAL' %}selected{% endif %}>外协加工</option>
+                                <option value="PURCHASED" {% if object.supply_method == 'PURCHASED' %}selected{% endif %}>外购件</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">供方名称</label>
+                            <input type="text" class="form-control" name="supplier_name" value="{{ object.supplier_name|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    {% if is_edit %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">状态</label>
+                            <select class="form-select" name="status">
+                                <option value="OPEN" {% if object.status == 'OPEN' %}selected{% endif %}>待处理</option>
+                                <option value="IN_PROGRESS" {% if object.status == 'IN_PROGRESS' %}selected{% endif %}>处理中</option>
+                                <option value="PENDING_REVIEW" {% if object.status == 'PENDING_REVIEW' %}selected{% endif %}>待审核</option>
+                                <option value="CLOSED" {% if object.status == 'CLOSED' %}selected{% endif %}>已关闭</option>
+                                <option value="CANCELLED" {% if object.status == 'CANCELLED' %}selected{% endif %}>已取消</option>
+                            </select>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <hr class="my-4">
+                    
+                    <!-- 附件 -->
+                    <h6 class="text-primary mb-3"><i class="bi bi-paperclip me-2"></i>附件</h6>
+                    <div class="mb-3">
+                        <label class="form-label">上传附件</label>
+                        <input type="file" class="form-control" name="attachment">
+                        <div class="form-text">支持上传图片、PDF等文件</div>
+                        {% if object.attachment %}
+                        <div class="mt-2">
+                            <a href="{{ object.attachment.url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-file-earmark"></i> 查看当前附件
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea class="form-control" name="notes" rows="2">{{ object.notes|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <a href="{% url 'ncr_list' %}" class="btn btn-secondary">取消</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i>{% if is_edit %}保存修改{% else %}创建报告{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const partSelect = document.getElementById('partSelect');
+    const measurementRecordSelect = document.getElementById('measurementRecordSelect');
+    
+    // 零件选择时自动填充产品信息
+    partSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value) {
+            document.getElementById('productName').value = selectedOption.dataset.partName || '';
+            document.getElementById('specification').value = selectedOption.dataset.specification || '';
+            document.getElementById('batchNumber').value = selectedOption.dataset.batchNumber || '';
+            document.getElementById('departmentCode').value = selectedOption.dataset.department || '';
+        }
+    });
+    
+    // 测量记录选择时自动关联零件
+    measurementRecordSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption.value && selectedOption.dataset.partId) {
+            partSelect.value = selectedOption.dataset.partId;
+            partSelect.dispatchEvent(new Event('change'));
+        }
+    });
+});
+</script>
+{% endblock %}

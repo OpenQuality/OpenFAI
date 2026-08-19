@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_edit %}编辑测量批次{% else %}新建测量批次{% endif %} - FAI质量评审系统{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'batch_list' %}">测量数据</a></li>
+<li class="breadcrumb-item active">{% if is_edit %}编辑{% else %}新建{% endif %}</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">{% if is_edit %}编辑测量批次{% else %}新建测量批次{% endif %}</h2>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">检验计划 <span class="text-danger">*</span></label>
+                    <select name="plan" class="form-select" required {% if is_edit %}disabled{% endif %}>
+                        <option value="">选择检验计划</option>
+                        {% for plan in plans %}
+                        <option value="{{ plan.pk }}" {% if object.plan.pk == plan.pk or request.GET.plan == plan.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ plan.plan_number }} - {{ plan.plan_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% if is_edit %}
+                    <input type="hidden" name="plan" value="{{ object.plan.pk }}">
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">设备类型</label>
+                    <select name="equipment_type" class="form-select">
+                        <option value="">选择设备类型</option>
+                        <option value="CMM" {% if object.equipment_type == 'CMM' %}selected{% endif %}>三坐标测量机</option>
+                        <option value="CALIPER" {% if object.equipment_type == 'CALIPER' %}selected{% endif %}>卡尺</option>
+                        <option value="MICROMETER" {% if object.equipment_type == 'MICROMETER' %}selected{% endif %}>千分尺</option>
+                        <option value="HEIGHT_GAGE" {% if object.equipment_type == 'HEIGHT_GAGE' %}selected{% endif %}>高度尺</option>
+                        <option value="OPTICAL" {% if object.equipment_type == 'OPTICAL' %}selected{% endif %}>光学测量仪</option>
+                        <option value="OTHER" {% if object.equipment_type == 'OTHER' %}selected{% endif %}>其他</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">设备编号</label>
+                    <input type="text" name="equipment_id" class="form-control" value="{{ object.equipment_id|default:'' }}">
+                </div>
+                
+                {% if is_edit %}
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">状态</label>
+                    <select name="status" class="form-select">
+                        <option value="DRAFT" {% if object.status == 'DRAFT' %}selected{% endif %}>草稿</option>
+                        <option value="IN_PROGRESS" {% if object.status == 'IN_PROGRESS' %}selected{% endif %}>进行中</option>
+                        <option value="COMPLETED" {% if object.status == 'COMPLETED' %}selected{% endif %}>已完成</option>
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">环境温度 (°C)</label>
+                    <input type="number" step="0.1" name="environment_temp" class="form-control" value="{{ object.environment_temp|default:'' }}">
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">环境湿度 (%)</label>
+                    <input type="number" step="0.1" name="environment_humidity" class="form-control" value="{{ object.environment_humidity|default:'' }}">
+                </div>
+                
+                <div class="col-12 mb-3">
+                    <label class="form-label">备注</label>
+                    <textarea name="notes" class="form-control" rows="3">{{ object.notes|default:'' }}</textarea>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>{% if is_edit %}保存修改{% else %}创建批次{% endif %}
+                </button>
+                <a href="{% url 'batch_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg me-1"></i>取消
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

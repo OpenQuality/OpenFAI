@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}{{ risk_point.risk_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'risk_point_list' %}">风险点</a></li>
+<li class="breadcrumb-item active">{{ risk_point.risk_id }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-exclamation-circle me-2"></i>{{ risk_point.risk_name }}</h2>
+            <small class="text-muted">风险编号: {{ risk_point.risk_id }}</small>
+        </div>
+        <div>
+            <a href="{% url 'risk_point_edit' risk_point.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> 编辑
+            </a>
+            <a href="{% url 'risk_point_list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> 返回
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">基本信息</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>风险编号</th>
+                            <td>{{ risk_point.risk_id }}</td>
+                        </tr>
+                        <tr>
+                            <th>风险类别</th>
+                            <td>{{ risk_point.risk_category|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>严重程度</th>
+                            <td>
+                                {% if risk_point.severity == 'CRITICAL' %}
+                                <span class="badge bg-danger">严重</span>
+                                {% elif risk_point.severity == 'MAJOR' %}
+                                <span class="badge bg-warning">重要</span>
+                                {% else %}
+                                <span class="badge bg-secondary">次要</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>发生概率</th>
+                            <td>{{ risk_point.probability|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>关联零件</th>
+                            <td>
+                                {% if risk_point.part %}
+                                <a href="{% url 'part_detail' risk_point.part.pk %}">
+                                    {{ risk_point.part.part_number }}
+                                </a>
+                                {% else %}-{% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">风险描述</h5>
+                </div>
+                <div class="card-body">
+                    {{ risk_point.description|default:"暂无描述"|linebreaks }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">预防措施</h5>
+                </div>
+                <div class="card-body">
+                    {{ risk_point.prevention_measures|default:"暂无"|linebreaks }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">纠正措施</h5>
+                </div>
+                <div class="card-body">
+                    {{ risk_point.correction_measures|default:"暂无"|linebreaks }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

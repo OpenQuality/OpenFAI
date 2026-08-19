@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}检验计划 - FAI质量评审系统{% endblock %}
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{% url 'dashboard' %}">仪表盘</a></li>
+<li class="breadcrumb-item active">检验计划</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">检验计划</h2>
+    <a href="{% url 'plan_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>创建检验计划
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>计划编号</th>
+                        <th>计划名称</th>
+                        <th>零件编号</th>
+                        <th>标准</th>
+                        <th>特性数</th>
+                        <th>状态</th>
+                        <th>创建时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for plan in plans %}
+                    <tr>
+                        <td><a href="{% url 'plan_detail' plan.pk %}" class="text-decoration-none"><strong>{{ plan.plan_number }}</strong></a></td>
+                        <td>{{ plan.plan_name }}</td>
+                        <td>{{ plan.part.part_number }}</td>
+                        <td><span class="badge bg-info">{{ plan.get_standard_display }}</span></td>
+                        <td>{{ plan.characteristics_count }}</td>
+                        <td>
+                            <span class="badge bg-{% if plan.status == 'ACTIVE' %}success{% elif plan.status == 'PENDING_REVIEW' %}warning{% elif plan.status == 'COMPLETED' %}primary{% else %}secondary{% endif %}">
+                                {{ plan.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ plan.created_at|date:"Y-m-d" }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'plan_detail' plan.pk %}" class="btn btn-outline-primary" title="查看"><i class="bi bi-eye"></i></a>
+                                <a href="{% url 'plan_edit' plan.pk %}" class="btn btn-outline-success" title="编辑"><i class="bi bi-pencil"></i></a>
+                                <form method="post" action="{% url 'plan_delete' plan.pk %}" style="display: inline;" onsubmit="return confirm('确定要删除吗？');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-outline-danger" title="删除"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-5">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            暂无检验计划，<a href="{% url 'plan_create' %}">点击创建</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if is_paginated %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a></li>
+                {% endif %}
+                <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+                {% if page_obj.has_next %}
+                <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
